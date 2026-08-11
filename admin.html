@@ -410,6 +410,29 @@ let participants = {
 };
 
 let adminToken = '';
+const ADMIN_SESSION_KEY = 'axg-event-admin-session';
+const ADMIN_SESSION_MAX_AGE = 4 * 60 * 60 * 1000;
+
+function saveAdminSession(token){
+  try{
+    sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({token, createdAt:Date.now()}));
+  }catch(error){}
+}
+function getAdminSession(){
+  try{
+    const session = JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || 'null');
+    if(!session?.token || !Number.isFinite(Number(session.createdAt)) || Date.now() - Number(session.createdAt) > ADMIN_SESSION_MAX_AGE){
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      return null;
+    }
+    return session;
+  }catch(error){
+    return null;
+  }
+}
+function clearAdminSession(){
+  try{ sessionStorage.removeItem(ADMIN_SESSION_KEY); }catch(error){}
+}
 
 function apiIsConfigured(){
   return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?|$)/.test(AXG_CONFIG.API_URL);
@@ -599,22 +622,42 @@ async function doLogin(){
     if(apiIsConfigured()) await AxgApi.authenticate();
     else if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
     await reloadAdminData();
+    saveAdminSession(adminToken);
     document.getElementById('view-login').style.display = 'none';
     document.getElementById('view-shell').classList.add('active');
     showPage('dashboard');
     if(!apiIsConfigured()) setTimeout(()=>toast('Mode preview — Google Apps Script belum dikonfigurasi'),100);
   } catch(error){
     adminToken = '';
+    clearAdminSession();
     err.textContent = error.message || 'Token Admin tidak valid.';
     err.style.display = 'block';
   }
 }
 function doLogout(){
   adminToken = '';
+  clearAdminSession();
   document.getElementById('view-shell').classList.remove('active');
   document.getElementById('view-login').style.display = 'flex';
   document.getElementById('pw').value = '';
   document.getElementById('pw-err').style.display = 'none';
+}
+
+async function restoreAdminSession(){
+  const session = getAdminSession();
+  if(!session) return;
+  adminToken = session.token;
+  try{
+    if(apiIsConfigured()) await AxgApi.authenticate();
+    else if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    await reloadAdminData();
+    document.getElementById('view-login').style.display = 'none';
+    document.getElementById('view-shell').classList.add('active');
+    showPage('dashboard');
+  }catch(error){
+    adminToken = '';
+    clearAdminSession();
+  }
 }
 
 /* ============ NAV / ROUTER ============ */
@@ -1292,6 +1335,9 @@ function confirmDeleteParticipant(id){
 /* ============ MODAL HELPERS ============ */
 function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+
+/* Pulihkan sesi yang sama setelah halaman di-refresh. */
+restoreAdminSession();
 </script>
 </body>
 </html>
