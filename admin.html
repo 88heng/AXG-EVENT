@@ -51,6 +51,14 @@
   .field input, .field select, .field textarea{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;color:var(--ink);transition:border-color .15s;}
   .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft);}
   .field .err{color:var(--red);font-size:12px;margin-top:5px;display:none;}
+  .password-wrap{position:relative;}
+  .password-wrap input{padding-right:46px;}
+  .password-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:7px;background:transparent;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .password-toggle:hover{background:var(--surface-alt);color:var(--gold-deep);}
+  .password-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .password-toggle .eye-off{display:none;}
+  .password-toggle.is-visible .eye-on{display:none;}
+  .password-toggle.is-visible .eye-off{display:block;}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;padding:11px 18px;font-weight:600;font-size:13.5px;transition:transform .12s, box-shadow .12s, background .15s;}
   .btn:active{transform:scale(0.98);}
   .btn-gold{background:var(--gold);color:#fff;}
@@ -199,7 +207,13 @@
     <p class="sub">Masuk untuk mengelola event &amp; peserta</p>
     <div class="field">
       <label for="pw">Password</label>
-      <input type="password" id="pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="password-wrap">
+        <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" class="password-toggle" id="pw-toggle" aria-label="Tampilkan sandi" aria-pressed="false" onclick="togglePasswordVisibility()">
+          <svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"></path><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 2.8M6.3 6.3C3.9 8 2.5 12 2.5 12s3.5 6 9.5 6c1 0 2-.2 2.8-.5"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+        </button>
+      </div>
       <div class="err" id="pw-err">Token Admin tidak valid.</div>
     </div>
     <button class="btn btn-gold btn-block" onclick="doLogin()">MASUK</button>
@@ -566,9 +580,17 @@ const AxgApi = {
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({action,adminToken,...data})
     });
-    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    if(!response.ok){
+      const error = new Error(`HTTP ${response.status}`);
+      error.code = 'HTTP_ERROR';
+      throw error;
+    }
     const payload = await response.json();
-    if(!payload.ok) throw new Error(payload.error?.message || 'Permintaan API gagal.');
+    if(!payload.ok){
+      const error = new Error(payload.error?.message || 'Permintaan API gagal.');
+      error.code = payload.error?.code || 'API_ERROR';
+      throw error;
+    }
     return payload.data;
   },
   authenticate(){ return this.request('authenticate'); },
@@ -609,6 +631,17 @@ let currentParticipantsEventId = events[0]?.id || '';
 let editingParticipantId = null;
 
 /* ============ LOGIN ============ */
+function togglePasswordVisibility(){
+  const input = document.getElementById('pw');
+  const button = document.getElementById('pw-toggle');
+  const showPassword = input.type === 'password';
+  input.type = showPassword ? 'text' : 'password';
+  button.classList.toggle('is-visible', showPassword);
+  button.setAttribute('aria-pressed', String(showPassword));
+  button.setAttribute('aria-label', showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi');
+  input.focus();
+}
+
 async function doLogin(){
   const pw = document.getElementById('pw').value;
   const err = document.getElementById('pw-err');
@@ -619,8 +652,7 @@ async function doLogin(){
   }
   adminToken = pw;
   try{
-    if(apiIsConfigured()) await AxgApi.authenticate();
-    else if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    /* getEvents scope Admin sekaligus memvalidasi token, jadi cukup satu request. */
     await reloadAdminData();
     saveAdminSession(adminToken);
     document.getElementById('view-login').style.display = 'none';
@@ -648,15 +680,20 @@ async function restoreAdminSession(){
   if(!session) return;
   adminToken = session.token;
   try{
-    if(apiIsConfigured()) await AxgApi.authenticate();
-    else if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    /* Satu request ini memvalidasi token dan memuat data Admin. */
     await reloadAdminData();
     document.getElementById('view-login').style.display = 'none';
     document.getElementById('view-shell').classList.add('active');
     showPage('dashboard');
   }catch(error){
+    const invalidSession = error.code === 'UNAUTHORIZED' || error.code === 'ADMIN_NOT_CONFIGURED';
     adminToken = '';
-    clearAdminSession();
+    if(invalidSession) clearAdminSession();
+    const err = document.getElementById('pw-err');
+    err.textContent = invalidSession
+      ? 'Sesi Admin berakhir. Silakan login kembali.'
+      : 'Koneksi API sedang terganggu. Refresh kembali beberapa saat lagi.';
+    err.style.display = 'block';
   }
 }
 
