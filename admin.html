@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXG EVENT — Admin Panel</title>
+<link rel="icon" type="image/webp" href="https://i.postimg.cc/pdDHkcRS/AXG-LOGO.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF9F5;
+    --surface:#FFFFFF;
+    --surface-alt:#F3F0E8;
+    --ink:#221F1A;
+    --ink-soft:#726C62;
+    --ink-faint:#A69F91;
+    --border:#E8E2D4;
+    --gold:#AD8425;
+    --gold-deep:#8C6A1C;
+    --gold-soft:#F6EDD7;
+    --red:#B03A2C;
+    --red-soft:#F9E7E3;
+    --green:#3E7A52;
+    --green-soft:#E5F1E9;
+    --radius:10px;
+    --shadow: 0 1px 2px rgba(34,31,26,0.04), 0 6px 20px rgba(34,31,26,0.05);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14.5px;line-height:1.5;}
+  h1,h2,h3,.display{font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:-0.01em;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .hidden{display:none !important;}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;cursor:pointer;}
+
+  /* ---------- LOGIN ---------- */
+  #view-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:
+      radial-gradient(circle at 15% 10%, #F9F1DD 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #FBEAE5 0%, transparent 40%),
+      var(--bg);
+  }
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:100%;max-width:380px;box-shadow:var(--shadow);text-align:center;}
+  .login-mark{width:64px;height:64px;border-radius:14px;background:#fff;border:1px solid var(--border);margin:0 auto 18px;display:flex;align-items:center;justify-content:center;padding:8px;box-shadow:var(--shadow);}
+  .login-mark img{max-width:100%;max-height:100%;object-fit:contain;}
+  .login-card h1{font-size:19px;margin:0 0 4px;}
+  .login-card p.sub{color:var(--ink-soft);font-size:13px;margin:0 0 26px;}
+  .field{text-align:left;margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
+  .field input, .field select, .field textarea{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;color:var(--ink);transition:border-color .15s;}
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft);}
+  .field .err{color:var(--red);font-size:12px;margin-top:5px;display:none;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;padding:11px 18px;font-weight:600;font-size:13.5px;transition:transform .12s, box-shadow .12s, background .15s;}
+  .btn:active{transform:scale(0.98);}
+  .btn-gold{background:var(--gold);color:#fff;}
+  .btn-gold:hover{background:var(--gold-deep);box-shadow:0 4px 14px rgba(173,132,37,0.28);}
+  .btn-block{width:100%;}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--ink);}
+  .btn-outline:hover{border-color:var(--ink-faint);background:var(--surface-alt);}
+  .btn-danger{background:var(--red);color:#fff;}
+  .btn-danger:hover{background:#8f2e22;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);}
+  .btn-ghost:hover{color:var(--ink);background:var(--surface-alt);}
+  .btn-sm{padding:7px 11px;font-size:12.5px;border-radius:7px;}
+  .login-note{margin-top:18px;font-size:11.5px;color:var(--ink-faint);}
+
+  /* ---------- SHELL ---------- */
+  #view-shell{display:none;min-height:100vh;}
+  #view-shell.active{display:flex;}
+  .sidebar{width:232px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:22px 16px;position:fixed;top:0;bottom:0;left:0;transition:transform .2s;z-index:40;}
+  .sidebar-brand{display:flex;align-items:center;gap:10px;padding:0 6px 22px;margin-bottom:6px;border-bottom:1px solid var(--border);}
+  .sidebar-brand .mark{width:36px;height:36px;border-radius:8px;background:#fff;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;padding:4px;flex-shrink:0;}
+  .sidebar-brand .mark img{max-width:100%;max-height:100%;object-fit:contain;}
+  .sidebar-brand span{font-family:'Montserrat';font-weight:800;font-size:14.5px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;color:var(--ink-soft);font-weight:600;font-size:13.5px;margin:3px 0;border-left:3px solid transparent;cursor:pointer;}
+  .nav-item svg{width:17px;height:17px;flex-shrink:0;opacity:.8;}
+  .nav-item:hover{background:var(--surface-alt);color:var(--ink);}
+  .nav-item.active{background:var(--gold-soft);color:var(--gold-deep);border-left-color:var(--gold);}
+  .sidebar-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--border);}
+  .admin-chip{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;}
+  .admin-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+  .admin-chip .who{font-size:12.5px;font-weight:600;}
+  .admin-chip .role{font-size:11px;color:var(--ink-faint);}
+
+  .main{margin-left:232px;flex:1;min-width:0;}
+  .topbar{position:sticky;top:0;background:rgba(250,249,245,0.9);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;z-index:20;}
+  .topbar h2{font-size:18px;margin:0;}
+  .topbar .crumb{font-size:12px;color:var(--ink-faint);margin-bottom:2px;}
+  #hamburger{display:none;background:none;border:none;font-size:20px;margin-right:10px;}
+  .content{padding:26px 28px 60px;}
+
+  /* stat cards */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:28px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+  .stat-card .label{font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+  .stat-card .num{font-size:30px;font-weight:600;font-family:'IBM Plex Mono';color:var(--ink);}
+  .stat-card .bar{height:2px;background:var(--gold);width:0;margin-top:12px;border-radius:2px;transition:width .8s ease;}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .panel-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{font-size:15px;margin:0;}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .search-input{padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;min-width:180px;}
+  .search-input:focus, select.search-input:focus{outline:none;border-color:var(--gold);}
+  select.search-input{background:var(--surface);}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:600;padding:11px 20px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:13px 20px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr.row-hover:hover{background:var(--surface-alt);}
+  .name-cell{font-weight:600;}
+  .sub-cell{font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;}
+  .badge .dot{width:6px;height:6px;border-radius:50%;}
+  .badge-green{background:var(--green-soft);color:var(--green);}
+  .badge-green .dot{background:var(--green);}
+  .badge-gray{background:var(--surface-alt);color:var(--ink-faint);}
+  .badge-gray .dot{background:var(--ink-faint);}
+  .badge-gold{background:var(--gold-soft);color:var(--gold-deep);}
+  .badge-gold .dot{background:var(--gold-deep);}
+
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .icon-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+  .icon-btn:hover{background:var(--surface-alt);color:var(--ink);}
+  .icon-btn svg{width:15px;height:15px;}
+  .event-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:255px;}
+  .event-action-btn{padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);font:inherit;font-size:11px;font-weight:700;line-height:1;cursor:pointer;white-space:nowrap;}
+  .event-action-btn:hover{background:var(--surface-alt);border-color:var(--gold);color:var(--gold-deep);}
+  .event-action-btn-danger{color:var(--red);border-color:var(--red-soft);}
+  .event-action-btn-danger:hover{background:var(--red-soft);border-color:var(--red);color:var(--red);}
+
+  .empty-state{padding:50px 20px;text-align:center;color:var(--ink-soft);}
+  .empty-state .em-mark{width:46px;height:46px;border-radius:12px;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:20px;}
+  .empty-state h4{margin:0 0 6px;color:var(--ink);font-size:14.5px;}
+  .empty-state p{margin:0 0 16px;font-size:13px;}
+
+  /* modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(34,31,26,0.42);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:100;}
+  .modal-overlay.hidden{display:none;}
+  .modal{background:var(--surface);border-radius:14px;width:100%;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,0.2);margin-bottom:40px;}
+  .modal.modal-sm{max-width:440px;}
+  .modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .modal-head h3{margin:0;font-size:16px;}
+  .modal-close{background:none;border:none;font-size:18px;color:var(--ink-faint);width:30px;height:30px;border-radius:7px;}
+  .modal-close:hover{background:var(--surface-alt);color:var(--ink);}
+  .modal-body{padding:22px 24px;max-height:66vh;overflow-y:auto;}
+  .modal-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:560px){.grid-2{grid-template-columns:1fr;}}
+
+  .mode-toggle{display:flex;gap:10px;margin-bottom:18px;}
+  .mode-opt{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;text-align:left;}
+  .mode-opt.active{border-color:var(--gold);background:var(--gold-soft);}
+  .mode-opt .t{font-weight:700;font-size:13.5px;margin-bottom:3px;}
+  .mode-opt .d{font-size:11.5px;color:var(--ink-soft);}
+
+  .category-block{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;background:var(--surface-alt);position:relative;}
+  .category-block .cat-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .category-block .cat-head span{font-weight:700;font-size:12.5px;color:var(--gold-deep);text-transform:uppercase;letter-spacing:.04em;}
+  .remove-cat{background:none;border:none;color:var(--red);font-size:12px;font-weight:600;}
+  .section-label{font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 12px;padding-top:14px;border-top:1px solid var(--border);}
+  .section-label:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .prize-row{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:8px;}
+  .prize-row label{font-size:12.5px;font-weight:600;color:var(--ink-soft);}
+
+  .confirm-box{text-align:center;}
+  .confirm-icon{width:48px;height:48px;border-radius:12px;background:var(--red-soft);color:var(--red);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:20px;}
+  .confirm-box p{color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
+  .confirm-box strong{color:var(--ink);}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:13px 18px;border-radius:9px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:200;display:flex;align-items:center;gap:10px;transform:translateY(20px);opacity:0;transition:all .25s;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .toast .tick{color:#7CD9A0;}
+
+  .group-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gold-deep);background:var(--gold-soft);padding:8px 20px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .team-title{font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--surface);padding:7px 20px 7px 34px;border-bottom:1px solid var(--border);}
+
+  @media(max-width:900px){
+    .sidebar{transform:translateX(-100%);box-shadow:0 0 0 2000px rgba(0,0,0,0);}
+    .sidebar.open{transform:translateX(0);box-shadow:10px 0 40px rgba(0,0,0,0.15);}
+    .main{margin-left:0;}
+    #hamburger{display:block;}
+    .content{padding:20px 16px 60px;}
+    .topbar{padding:14px 16px;}
+    th,td{padding:11px 12px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN VIEW ======================= -->
+<div id="view-login">
+  <div class="login-card">
+    <div class="login-mark"><img src="https://i.postimg.cc/pdDHkcRS/AXG-LOGO.webp" alt="AXG Logo"></div>
+    <h1>AXG EVENT — Admin</h1>
+    <p class="sub">Masuk untuk mengelola event &amp; peserta</p>
+    <div class="field">
+      <label for="pw">Password</label>
+      <input type="password" id="pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="err" id="pw-err">Token Admin tidak valid.</div>
+    </div>
+    <button class="btn btn-gold btn-block" onclick="doLogin()">MASUK</button>
+    <p class="login-note">Gunakan token Admin dari Script Properties. Token tidak disimpan di source code.</p>
+  </div>
+</div>
+
+<!-- ======================= ADMIN SHELL ======================= -->
+<div id="view-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="mark"><img src="https://i.postimg.cc/pdDHkcRS/AXG-LOGO.webp" alt="AXG Logo"></div>
+      <span>AXG EVENT</span>
+    </div>
+    <nav style="margin-top:10px;">
+      <div class="nav-item active" data-nav="dashboard" onclick="showPage('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-nav="events" onclick="showPage('events')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        Kelola Event
+      </div>
+      <div class="nav-item" data-nav="participants" onclick="showPage('participants')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="18" cy="8" r="2.6"/><path d="M16 14.2c2.8.3 5 2.6 5 5.8"/></svg>
+        Kelola Peserta
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="admin-chip">
+        <div class="dot"></div>
+        <div>
+          <div class="who">Admin AXG</div>
+          <div class="role">Sesi aktif · 4 jam</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;justify-content:flex-start;" onclick="doLogout()">
+        ⏻ &nbsp;Logout
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;">
+        <button id="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <div>
+          <div class="crumb" id="page-crumb">AXG EVENT / Admin</div>
+          <h2 id="page-title">Dashboard</h2>
+        </div>
+      </div>
+      <div id="topbar-action"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- ======================= MODALS ======================= -->
+<div class="modal-overlay hidden" id="modal-event">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="event-modal-title">Buat Event Baru</h3>
+      <button class="modal-close" onclick="closeModal('modal-event')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="field"><label>Nama Event</label><input id="f-name" placeholder="misal: HUT Kemerdekaan RI KE-81"></div>
+        <div class="field"><label>Tanggal</label><input id="f-date" type="date"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Emoji / Ikon</label><input id="f-flag" placeholder="misal: 🇮🇩"></div>
+        <div class="field"><label>Tagline</label><input id="f-tagline" placeholder="Ringkasan singkat untuk kartu event"></div>
+      </div>
+      <div class="field"><label>Deskripsi</label><textarea id="f-desc" rows="2" placeholder="Deskripsi lengkap event"></textarea></div>
+      <div class="grid-2">
+        <div class="field"><label>Tempat / Lokasi Acara</label><input id="f-location" placeholder="misal: Mess 96 – Area Dapur Lantai 1"></div>
+        <div class="field"><label>Link Foto Event</label><input id="f-photo" placeholder="https://..."></div>
+      </div>
+
+      <div class="section-label">Mode Event</div>
+      <div class="mode-toggle">
+        <div class="mode-opt active" id="mode-a-opt" onclick="setMode('A')">
+          <div class="t">Tanpa Kategori</div>
+          <div class="d">Contoh: Makan Bersama — cukup 1 kapasitas untuk semua</div>
+        </div>
+        <div class="mode-opt" id="mode-b-opt" onclick="setMode('B')">
+          <div class="t">Dengan Kategori</div>
+          <div class="d">Contoh: Lomba 17 Agustus — banyak cabang lomba</div>
+        </div>
+      </div>
+
+      <!-- MODE A FIELDS -->
+      <div id="mode-a-fields">
+        <div class="section-label">Detail Event (Mode Tanpa Kategori)</div>
+        <div class="field"><label>Kapasitas <span style="color:var(--red)">*wajib</span></label><input id="f-cap-a" type="number" min="1" placeholder="misal: 30"></div>
+        <div class="field"><label>Aturan Main</label><textarea id="f-rules-a" rows="2" placeholder="Aturan main event"></textarea></div>
+        <label style="font-size:12.5px;font-weight:600;color:var(--ink-soft);">Rincian Hadiah</label>
+        <div class="prize-row"><label>Juara 1</label><input id="f-prize-a1" placeholder="misal: Rp 500.000"></div>
+        <div class="prize-row"><label>Juara 2</label><input id="f-prize-a2" placeholder="misal: Rp 300.000"></div>
+        <div class="prize-row"><label>Juara 3</label><input id="f-prize-a3" placeholder="misal: Rp 150.000"></div>
+        <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);">
+          <span>Field Pendaftaran Tambahan</span>
+          <button class="btn btn-outline btn-sm" type="button" onclick="addExtraFieldBlock()">+ Tambah Field</button>
+        </div>
+        <div id="extra-field-list"></div>
+      </div>
+
+      <!-- MODE B FIELDS -->
+      <div id="mode-b-fields" class="hidden">
+        <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);">
+          <span>Kategori Lomba</span>
+          <button class="btn btn-outline btn-sm" onclick="addCategoryBlock()">+ Tambah Kategori</button>
+        </div>
+        <div id="category-list"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-event')">Batal</button>
+      <button class="btn btn-gold" onclick="saveEvent()">Simpan Event</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-result">
+  <div class="modal modal-sm">
+    <div class="modal-head"><h3>Isi Hasil / Pemenang</h3><button class="modal-close" onclick="closeModal('modal-result')">✕</button></div>
+    <div class="modal-body" id="result-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-result')">Batal</button>
+      <button class="btn btn-gold" onclick="saveResult()">Simpan Hasil</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-confirm">
+  <div class="modal modal-sm">
+    <div class="modal-body confirm-box">
+      <div class="confirm-icon">⚠️</div>
+      <h3 id="confirm-title" style="margin:0 0 8px;">Hapus Event Ini?</h3>
+      <p id="confirm-text"></p>
+    </div>
+    <div class="modal-foot" style="justify-content:center;">
+      <button class="btn btn-outline" onclick="closeModal('modal-confirm')">Batal</button>
+      <button class="btn btn-danger" id="confirm-btn">Ya, Hapus Permanen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-edit-participant">
+  <div class="modal modal-sm">
+    <div class="modal-head"><h3>Edit Peserta</h3><button class="modal-close" onclick="closeModal('modal-edit-participant')">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nama</label><input id="ep-name"></div>
+      <div class="field"><label>Divisi</label><input id="ep-divisi"></div>
+      <div class="field"><label>Telegram</label><input id="ep-telegram"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-participant')">Batal</button>
+      <button class="btn btn-gold" onclick="savePartticipantEdit()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="tick">✓</span><span id="toast-msg">Berhasil disimpan</span></div>
+
+<script>
+/* ============ CANONICAL DATA + GOOGLE APPS SCRIPT ============
+   Isi API_URL dengan URL deployment /exec yang sama dengan halaman Public.
+   Data dummy di bawah hanya fallback preview selama API belum dikonfigurasi. */
+const AXG_CONFIG = Object.freeze({
+  API_URL: 'https://script.google.com/macros/s/AKfycbxyfojAmRcT8K1l53QLZKoQ3ptVYk0OneEPtyA3zXgNbBcQFcvCJSmgb6X4ZP2luNj9lg/exec',
+  ENABLE_MOCK_FALLBACK: true
+});
+
+let events = [
+  {
+    id:'1', slug:'hut-kemerdekaan-ri-ke-81-axg', name:'HUT Kemerdekaan RI KE-81 AXG', flagEmoji:'🇮🇩',
+    tagline:'Rangkaian lomba kemerdekaan untuk seluruh karyawan AXG.',
+    description:'Rangkaian lomba memperingati Hari Kemerdekaan Republik Indonesia. Terbuka untuk seluruh karyawan AXG — silakan pilih kategori individu atau bentuk tim bersama pasangan sendiri.',
+    date:'2026-08-17', location:'Mess 96 – Area Dapur Lantai 1', image:'https://i.postimg.cc/4y4sYvCQ/event-foto-axg.jpg', mode:'B', active:true,
+    categories:[
+      {id:'ludo', name:'Ludo Team', type:'tim', capacity:10, teamSize:2, rules:'Satu tim terdiri dari 2 orang. Peserta bebas memilih pasangan atau nama tim sendiri.', prizes:[], results:null},
+      {id:'congklak', name:'Congklak Individu', type:'individu', capacity:20, rules:'Peserta bermain secara individu.', prizes:[], results:null},
+      {id:'catur', name:'Catur Individu', type:'individu', capacity:16, rules:'Peserta bermain secara individu.', prizes:[], results:null},
+      {id:'gaple', name:'Gaple Team', type:'tim', capacity:8, teamSize:2, rules:'Satu tim terdiri dari 2 orang. Peserta bebas memilih pasangan atau nama tim sendiri.', prizes:[], results:null},
+      {id:'poker', name:'Poker Individu', type:'individu', capacity:12, rules:'Peserta bermain secara individu.', prizes:[], results:null},
+      {id:'lomba-makan', name:'Lomba Makan', type:'individu', capacity:20, rules:'Peserta bermain secara individu.', prizes:[], results:null}
+    ],
+    results:null
+  },
+  { id:2, name:'Makan Bersama Divisi IT', desc:'Makan siang bersama seluruh tim IT.', date:'2026-09-05', location:'Kantin Lt. 2', mode:'A', active:false, capacity:30, results:{} },
+];
+
+let participants = {
+  1: [
+    {id:'AXG-0001', name:'Budi Santoso', divisi:'IT', telegram:'budisan', category:'Congklak Individu', team:null},
+    {id:'AXG-0002', name:'Andi Wijaya', divisi:'HRD', telegram:'andiw', category:'Congklak Individu', team:null},
+    {id:'AXG-0003', name:'Sinta Marlina', divisi:'Finance', telegram:'sintam', category:'Ludo Team', team:'Team Smit'},
+    {id:'AXG-0004', name:'Rudi Hartono', divisi:'Marketing', telegram:'rudih', category:'Ludo Team', team:'Team Smit'},
+    {id:'AXG-0005', name:'Dewi Anggraini', divisi:'IT', telegram:'dewia', category:'Catur Individu', team:null},
+    {id:'AXG-0006', name:'Yusuf Pratama', divisi:'GA', telegram:'yusufp', category:'Gaple Team', team:'Team Mosiongto'},
+    {id:'AXG-0007', name:'Nadia Putri', divisi:'HRD', telegram:'nadiap', category:'Gaple Team', team:'Team Mosiongto'},
+  ],
+  2: [
+    {id:'AXG-0008', name:'Fajar Ramadhan', divisi:'IT', telegram:'fajarr', category:null, team:null},
+    {id:'AXG-0009', name:'Lestari Wulan', divisi:'IT', telegram:'lestariw', category:null, team:null},
+  ]
+};
+
+let adminToken = '';
+
+function apiIsConfigured(){
+  return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?|$)/.test(AXG_CONFIG.API_URL);
+}
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function normalizeText(value){ return String(value||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function slugify(value){
+  return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function escapeHtml(value){
+  return String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+function normalizePrizes(prizes){
+  if(!Array.isArray(prizes)) return [];
+  return prizes.map((item,index)=> typeof item === 'string'
+    ? {label:`Juara ${index+1}`,value:item}
+    : {label:item?.label || `Juara ${index+1}`,value:item?.value || ''}
+  ).filter(item=>item.value);
+}
+function normalizeResults(results, prizes){
+  if(!results) return null;
+  if(Array.isArray(results)) return results;
+  const source = results._ || results;
+  const list = [1,2,3].map((position,index)=>{
+    const nama = source[position] || source[String(position)] || '';
+    return nama ? {posisi:`Juara ${position}`,nama,hadiah:prizes[index]?.value || ''} : null;
+  }).filter(Boolean);
+  return list.length ? list : null;
+}
+function normalizeParticipant(participant,index,eventId,category){
+  return {
+    id:String(participant.id || participant.registrationNumber || uid()),
+    registrationNumber:participant.registrationNumber || (String(participant.id||'').startsWith('AXG-') ? participant.id : ''),
+    no:Number(participant.no || index+1),
+    eventId:String(participant.eventId || eventId || ''),
+    categoryId:String(participant.categoryId || category?.id || ''),
+    category:participant.category || category?.name || null,
+    name:participant.name || '',
+    divisi:participant.divisi || participant.division || '',
+    telegram:String(participant.telegram || '').replace(/^@+/,''),
+    team:participant.team || null,
+    extra:participant.extra || {}
+  };
+}
+function normalizeCategory(category,eventId,index){
+  const prizes = normalizePrizes(category.prizes);
+  return {
+    ...category,
+    id:String(category.id || `${eventId}-category-${index+1}`),
+    name:category.name || `Kategori ${index+1}`,
+    type:category.type === 'tim' ? 'tim' : 'individu',
+    capacity:Number(category.capacity || 0),
+    teamSize:category.teamSize === 'bebas' || category.teamSize === 'free' || !category.teamSize ? 'bebas' : Number(category.teamSize),
+    rules:category.rules || '',
+    prizes,
+    results:normalizeResults(category.results,prizes),
+    participants:(category.participants || []).map((p,pIndex)=>normalizeParticipant(p,pIndex,eventId,category))
+  };
+}
+function normalizeEvent(event,index){
+  const id = String(event.id || event.slug || `event-${index+1}`);
+  const prizes = normalizePrizes(event.prizes);
+  const mode = String(event.mode || 'A').toUpperCase() === 'B' ? 'B' : 'A';
+  return {
+    ...event,
+    id,
+    slug:event.slug || slugify(event.name) || id,
+    name:event.name || '',
+    flagEmoji:event.flagEmoji || '',
+    tagline:event.tagline || event.description || event.desc || '',
+    description:event.description || event.desc || '',
+    date:event.date || '',
+    location:event.location || '',
+    image:event.image || event.photo || '',
+    mode,
+    active:event.active === true || String(event.active).toLowerCase() === 'true',
+    capacity:Number(event.capacity || 0),
+    rules:event.rules || '',
+    prizes,
+    results:normalizeResults(event.results,prizes),
+    extraFields:Array.isArray(event.extraFields) ? event.extraFields : [],
+    participants:mode === 'A' ? (event.participants || []).map((p,pIndex)=>normalizeParticipant(p,pIndex,id,null)) : [],
+    categories:mode === 'B' ? (event.categories || []).map((c,cIndex)=>normalizeCategory(c,id,cIndex)) : []
+  };
+}
+
+function applyCanonicalEvents(rawEvents){
+  events = (rawEvents || []).map(normalizeEvent);
+  participants = {};
+  events.forEach(event=>{
+    if(event.mode === 'A') participants[event.id] = event.participants.map((p,index)=>normalizeParticipant(p,index,event.id,null));
+    else participants[event.id] = event.categories.flatMap(category=>
+      category.participants.map((p,index)=>normalizeParticipant(p,index,event.id,category))
+    );
+  });
+}
+
+function applyMockState(){
+  events = events.map(normalizeEvent);
+  const original = participants;
+  participants = {};
+  events.forEach(event=>{
+    const list = (original[event.id] || original[Number(event.id)] || []).map((p,index)=>{
+      const category = event.mode === 'B' ? event.categories.find(c=>normalizeText(c.name)===normalizeText(p.category)) : null;
+      return normalizeParticipant(p,index,event.id,category);
+    });
+    participants[event.id] = list;
+    syncNestedParticipants(event.id);
+  });
+}
+
+function syncNestedParticipants(eventId){
+  const event = events.find(item=>item.id===String(eventId));
+  if(!event) return;
+  const list = participants[event.id] || [];
+  if(event.mode === 'A') event.participants = list.map((p,index)=>normalizeParticipant(p,index,event.id,null));
+  else event.categories.forEach(category=>{
+    category.participants = list.filter(p=>p.categoryId===category.id || normalizeText(p.category)===normalizeText(category.name))
+      .map((p,index)=>normalizeParticipant(p,index,event.id,category));
+  });
+}
+
+const AxgApi = {
+  async request(action,data={}){
+    if(!apiIsConfigured()) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    const response = await fetch(AXG_CONFIG.API_URL, {
+      method:'POST',
+      redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action,adminToken,...data})
+    });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if(!payload.ok) throw new Error(payload.error?.message || 'Permintaan API gagal.');
+    return payload.data;
+  },
+  authenticate(){ return this.request('authenticate'); },
+  getEvents(){ return this.request('getEvents',{scope:'admin'}); },
+  saveEvent(data){ return this.request('saveEvent',{data}); },
+  deleteEvent(id){ return this.request('deleteEvent',{id}); },
+  updateParticipant(data){ return this.request('updateParticipant',{data}); },
+  deleteParticipant(id){ return this.request('deleteParticipant',{id}); },
+  saveResult(data){ return this.request('saveResult',{data}); }
+};
+
+async function reloadAdminData(){
+  if(apiIsConfigured()) applyCanonicalEvents(await AxgApi.getEvents());
+  else {
+    if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    console.warn('AXG Admin berjalan dalam mode preview; perubahan belum tersambung ke Google Apps Script.');
+  }
+  if(events.length && !events.some(e=>e.id===currentParticipantsEventId)) currentParticipantsEventId = events[0].id;
+}
+
+async function persistEvent(event){
+  if(apiIsConfigured()){
+    await AxgApi.saveEvent(event);
+    await reloadAdminData();
+  } else {
+    if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    syncNestedParticipants(event.id);
+  }
+}
+
+applyMockState();
+
+let currentMode = 'A';
+let catCounter = 0;
+let extraFieldCounter = 0;
+let editingEventId = null;
+let currentParticipantsEventId = events[0]?.id || '';
+let editingParticipantId = null;
+
+/* ============ LOGIN ============ */
+async function doLogin(){
+  const pw = document.getElementById('pw').value;
+  const err = document.getElementById('pw-err');
+  if(!pw){
+    err.textContent = 'Token Admin wajib diisi.';
+    err.style.display = 'block';
+    return;
+  }
+  adminToken = pw;
+  try{
+    if(apiIsConfigured()) await AxgApi.authenticate();
+    else if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
+    await reloadAdminData();
+    document.getElementById('view-login').style.display = 'none';
+    document.getElementById('view-shell').classList.add('active');
+    showPage('dashboard');
+    if(!apiIsConfigured()) setTimeout(()=>toast('Mode preview — Google Apps Script belum dikonfigurasi'),100);
+  } catch(error){
+    adminToken = '';
+    err.textContent = error.message || 'Token Admin tidak valid.';
+    err.style.display = 'block';
+  }
+}
+function doLogout(){
+  adminToken = '';
+  document.getElementById('view-shell').classList.remove('active');
+  document.getElementById('view-login').style.display = 'flex';
+  document.getElementById('pw').value = '';
+  document.getElementById('pw-err').style.display = 'none';
+}
+
+/* ============ NAV / ROUTER ============ */
+function showPage(page){
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === page));
+  document.getElementById('sidebar').classList.remove('open');
+  const titles = {dashboard:'Dashboard', events:'Kelola Event', participants:'Kelola Peserta'};
+  document.getElementById('page-title').textContent = titles[page];
+  const content = document.getElementById('content');
+  const topAction = document.getElementById('topbar-action');
+  topAction.innerHTML = '';
+  if(page === 'dashboard') renderDashboard(content);
+  if(page === 'events') renderEvents(content, topAction);
+  if(page === 'participants') renderParticipants(content, topAction);
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+/* ============ DASHBOARD ============ */
+function renderDashboard(el){
+  const totalEvent = events.length;
+  const totalPeserta = Object.values(participants).reduce((a,l)=>a+l.length,0);
+  const eventAktif = events.filter(e=>e.active).length;
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Total Event</div><div class="num">${totalEvent}</div><div class="bar" style="width:70%"></div></div>
+      <div class="stat-card"><div class="label">Total Peserta</div><div class="num">${totalPeserta}</div><div class="bar" style="width:85%"></div></div>
+      <div class="stat-card"><div class="label">Event Aktif</div><div class="num">${eventAktif}</div><div class="bar" style="width:40%"></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Event Terbaru</h3><button class="btn btn-outline btn-sm" onclick="showPage('events')">Lihat Semua</button></div>
+      <table>
+        <thead><tr><th>Nama Event</th><th>Tanggal</th><th>Status</th><th>Peserta</th></tr></thead>
+        <tbody>
+          ${events.map(e => `
+            <tr class="row-hover">
+              <td class="name-cell">${escapeHtml(e.name)}<div class="sub-cell">${e.mode==='B'?'Dengan Kategori':'Tanpa Kategori'}</div></td>
+              <td class="mono">${formatDate(e.date)}</td>
+              <td>${statusBadge(e)}</td>
+              <td class="mono">${(participants[e.id]||[]).length}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function statusBadge(e){
+  if(!e.active) return `<span class="badge badge-gray"><span class="dot"></span>Event Selesai</span>`;
+  const counts = getEventCounts(e);
+  const ratio = counts.capacity > 0 ? counts.registered / counts.capacity : 0;
+  if(counts.capacity > 0 && counts.registered >= counts.capacity) return `<span class="badge badge-gold"><span class="dot"></span>Slot Penuh</span>`;
+  if(ratio >= .8) return `<span class="badge badge-gold"><span class="dot"></span>Slot Terbatas</span>`;
+  return `<span class="badge badge-green"><span class="dot"></span>Pendaftaran Dibuka</span>`;
+}
+function getEventCounts(event){
+  if(event.mode === 'A') return {registered:(participants[event.id]||[]).length,capacity:event.capacity};
+  return event.categories.reduce((total,category)=>{
+    const categoryParticipants = (participants[event.id]||[]).filter(p=>p.categoryId===category.id || normalizeText(p.category)===normalizeText(category.name));
+    const registered = category.type === 'tim'
+      ? new Set(categoryParticipants.map(p=>normalizeText(p.team)).filter(Boolean)).size
+      : categoryParticipants.length;
+    return {registered:total.registered+registered,capacity:total.capacity+category.capacity};
+  },{registered:0,capacity:0});
+}
+function formatDate(d){
+  const dt = new Date(d+'T00:00:00');
+  return dt.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+}
+
+/* ============ KELOLA EVENT ============ */
+function renderEvents(el, topAction){
+  topAction.innerHTML = `<button class="btn btn-gold btn-sm" onclick="openEventModal()">+ Buat Event Baru</button>`;
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Semua Event</h3>
+        <div class="toolbar">
+          <input class="search-input" id="ev-search" placeholder="Cari nama event..." oninput="renderEventTable()">
+          <select class="search-input" id="ev-filter" onchange="renderEventTable()">
+            <option value="">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Nonaktif</option>
+          </select>
+        </div>
+      </div>
+      <div id="event-table-wrap"></div>
+    </div>
+  `;
+  renderEventTable();
+}
+
+function renderEventTable(){
+  const wrap = document.getElementById('event-table-wrap');
+  const q = (document.getElementById('ev-search')?.value || '').toLowerCase();
+  const filter = document.getElementById('ev-filter')?.value || '';
+  let list = events.filter(e => e.name.toLowerCase().includes(q));
+  if(filter === 'active') list = list.filter(e=>e.active);
+  if(filter === 'inactive') list = list.filter(e=>!e.active);
+
+  if(list.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Tidak ada event ditemukan</h4><p>Coba ubah kata kunci pencarian atau filter.</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Nama Event</th><th>Lokasi</th><th>Tanggal</th><th>Status</th><th>Peserta</th><th>Aksi</th></tr></thead>
+      <tbody>
+        ${list.map(e => `
+          <tr class="row-hover">
+            <td class="name-cell">${escapeHtml(e.name)}<div class="sub-cell">${e.mode==='B'?'Dengan Kategori · '+e.categories.length+' kategori':'Tanpa Kategori'}</div></td>
+            <td>${escapeHtml(e.location)}</td>
+            <td class="mono">${formatDate(e.date)}</td>
+            <td>${statusBadge(e)}</td>
+            <td class="mono">${(participants[e.id]||[]).length}</td>
+            <td>
+              <div class="event-actions">
+                <button type="button" class="event-action-btn" onclick="openEventModal('${e.id}')">Edit Event</button>
+                <button type="button" class="event-action-btn" onclick="toggleActive('${e.id}')">${e.active?'Nonaktifkan':'Aktifkan'}</button>
+                <button type="button" class="event-action-btn" onclick="openResultModal('${e.id}')">Isi Hasil</button>
+                <button type="button" class="event-action-btn" onclick="downloadExcel('${e.id}')">Unduh Peserta</button>
+                <button type="button" class="event-action-btn event-action-btn-danger" onclick="confirmDeleteEvent('${e.id}')">Hapus</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function toggleActive(id){
+  const e = events.find(x=>x.id===id);
+  if(!e) return;
+  const previous = e.active;
+  e.active = !e.active;
+  try{
+    await persistEvent(e);
+    renderEventTable();
+    toast(apiIsConfigured()
+      ? (e.active ? 'Event diaktifkan — kini tampil di halaman publik' : 'Event dinonaktifkan — disembunyikan dari publik')
+      : 'Status berubah pada mode preview');
+  }catch(error){
+    e.active = previous;
+    toast(error.message || 'Status event gagal disimpan');
+  }
+}
+
+function downloadExcel(id){
+  const e = events.find(x=>x.id===id);
+  if(!e) return;
+  const list = participants[e.id] || [];
+  const headers = ['Nomor Pendaftaran','Nama','Divisi','Telegram','Kategori','Tim'];
+  const escapeCsv = value => `"${String(value||'').replace(/"/g,'""')}"`;
+  const rows = list.map(p=>[
+    p.registrationNumber || p.id,
+    p.name,
+    p.divisi,
+    p.telegram ? '@'+p.telegram : '',
+    p.category || '',
+    p.team || ''
+  ].map(escapeCsv).join(','));
+  const blob = new Blob(['\ufeff'+[headers.map(escapeCsv).join(','),...rows].join('\n')], {type:'text/csv;charset=utf-8'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${slugify(e.name)||'axg-event'}-peserta.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  toast('Data peserta berhasil diunduh');
+}
+
+function confirmDeleteEvent(id){
+  const e = events.find(x=>x.id===id);
+  const count = (participants[id]||[]).length;
+  document.getElementById('confirm-title').textContent = 'Hapus Event Ini?';
+  document.getElementById('confirm-text').innerHTML = `Event <strong>"${escapeHtml(e.name)}"</strong> beserta <strong>${count} peserta terdaftar</strong> akan dihapus permanen. Data tidak dapat dikembalikan.`;
+  const btn = document.getElementById('confirm-btn');
+  btn.textContent = 'Ya, Hapus Permanen';
+  btn.onclick = async () => {
+    try{
+      if(apiIsConfigured()){
+        await AxgApi.deleteEvent(id);
+        await reloadAdminData();
+      } else {
+        events = events.filter(x=>x.id!==id);
+        delete participants[id];
+      }
+      closeModal('modal-confirm');
+      renderEventTable();
+      toast(apiIsConfigured() ? 'Event berhasil dihapus' : 'Event dihapus pada mode preview');
+    }catch(error){
+      toast(error.message || 'Event gagal dihapus');
+    }
+  };
+  openModal('modal-confirm');
+}
+
+/* ---- Event form modal ---- */
+function openEventModal(id){
+  editingEventId = id || null;
+  catCounter = 0;
+  extraFieldCounter = 0;
+  document.getElementById('category-list').innerHTML = '';
+  document.getElementById('extra-field-list').innerHTML = '';
+  const e = id ? events.find(x=>x.id===id) : null;
+
+  document.getElementById('event-modal-title').textContent = id ? 'Edit Event' : 'Buat Event Baru';
+  document.getElementById('f-name').value = e ? e.name : '';
+  document.getElementById('f-flag').value = e ? e.flagEmoji : '';
+  document.getElementById('f-tagline').value = e ? e.tagline : '';
+  document.getElementById('f-desc').value = e ? e.description : '';
+  document.getElementById('f-date').value = e ? e.date : '';
+  document.getElementById('f-location').value = e ? e.location : '';
+  document.getElementById('f-photo').value = e ? (e.image||'') : '';
+
+  setMode(e ? e.mode : 'A');
+
+  if(e && e.mode === 'A'){
+    document.getElementById('f-cap-a').value = e.capacity || '';
+    document.getElementById('f-rules-a').value = e.rules || '';
+    document.getElementById('f-prize-a1').value = (e.prizes&&e.prizes[0]?.value)||'';
+    document.getElementById('f-prize-a2').value = (e.prizes&&e.prizes[1]?.value)||'';
+    document.getElementById('f-prize-a3').value = (e.prizes&&e.prizes[2]?.value)||'';
+    (e.extraFields || []).forEach(field=>addExtraFieldBlock(field));
+  } else if(!e){
+    document.getElementById('f-cap-a').value = '';
+    document.getElementById('f-rules-a').value = '';
+    document.getElementById('f-prize-a1').value = '';
+    document.getElementById('f-prize-a2').value = '';
+    document.getElementById('f-prize-a3').value = '';
+  }
+
+  if(e && e.mode === 'B'){
+    document.getElementById('category-list').innerHTML = '';
+    catCounter = 0;
+    e.categories.forEach(c => addCategoryBlock(c));
+  }
+
+  openModal('modal-event');
+}
+
+function addExtraFieldBlock(data={}){
+  extraFieldCounter++;
+  const fieldId = data.id || `field-${extraFieldCounter}`;
+  const div = document.createElement('div');
+  div.className = 'category-block extra-field-block';
+  div.dataset.fieldId = fieldId;
+  div.innerHTML = `
+    <div class="cat-head"><span>Field Tambahan</span><button class="remove-cat" type="button" onclick="this.closest('.extra-field-block').remove()">Hapus Field</button></div>
+    <div class="grid-2">
+      <div class="field"><label>Label</label><input class="extra-label" value="${escapeHtml(data.label||'')}" placeholder="misal: Ukuran Baju"></div>
+      <div class="field"><label>Tipe</label><select class="extra-type"><option value="text" ${data.type!=='number'?'selected':''}>Teks</option><option value="number" ${data.type==='number'?'selected':''}>Angka</option></select></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Placeholder</label><input class="extra-placeholder" value="${escapeHtml(data.placeholder||'')}"></div>
+      <div class="field"><label>Wajib Diisi</label><select class="extra-required"><option value="false" ${!data.required?'selected':''}>Tidak</option><option value="true" ${data.required?'selected':''}>Ya</option></select></div>
+    </div>`;
+  document.getElementById('extra-field-list').appendChild(div);
+}
+
+function setMode(mode){
+  currentMode = mode;
+  document.getElementById('mode-a-opt').classList.toggle('active', mode==='A');
+  document.getElementById('mode-b-opt').classList.toggle('active', mode==='B');
+  document.getElementById('mode-a-fields').classList.toggle('hidden', mode!=='A');
+  document.getElementById('mode-b-fields').classList.toggle('hidden', mode!=='B');
+  if(mode==='B' && document.getElementById('category-list').children.length===0){
+    addCategoryBlock();
+  }
+}
+
+function addCategoryBlock(data){
+  catCounter++;
+  const cid = data?.id || 'cat'+catCounter+'_'+Date.now();
+  const prizes = normalizePrizes(data?.prizes || []);
+  const freeTeamSize = data?.teamSize === 'bebas' || data?.teamSize === 'free' || !data?.teamSize;
+  const div = document.createElement('div');
+  div.className = 'category-block';
+  div.dataset.cid = cid;
+  div.innerHTML = `
+    <div class="cat-head">
+      <span>Kategori</span>
+      <button class="remove-cat" onclick="this.closest('.category-block').remove()">Hapus Kategori</button>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Nama Kategori</label><input class="cat-name" placeholder="misal: Catur" value="${escapeHtml(data?.name||'')}"></div>
+      <div class="field"><label>Tipe</label>
+        <select class="cat-type" onchange="toggleTeamFields(this)">
+          <option value="individu" ${data&&data.type==='individu'?'selected':''}>Individu</option>
+          <option value="tim" ${data&&data.type==='tim'?'selected':''}>Tim</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Kapasitas <span style="color:var(--red)">*wajib</span></label><input class="cat-cap" type="number" min="1" placeholder="misal: 20" value="${data?data.capacity:''}"></div>
+      <div class="field cat-teamsize ${data&&data.type==='tim'?'':'hidden'}"><label>Anggota per Tim</label>
+        <select class="cat-teamsize-select">
+          <option value="fixed" ${!freeTeamSize?'selected':''}>Tetap — isi jumlah</option>
+          <option value="free" ${freeTeamSize?'selected':''}>Bebas</option>
+        </select>
+        <input class="cat-teamsize-num" type="number" min="1" placeholder="misal: 2" style="margin-top:8px;" value="${!freeTeamSize?Number(data.teamSize):''}">
+      </div>
+    </div>
+    <div class="field"><label>Aturan Main</label><textarea class="cat-rules" rows="2" placeholder="Aturan main kategori ini">${escapeHtml(data?.rules||'')}</textarea></div>
+    <label style="font-size:12px;font-weight:600;color:var(--ink-soft);">Rincian Hadiah</label>
+    <div class="prize-row"><label>Juara 1</label><input class="cat-prize1" placeholder="misal: Rp 300.000" value="${escapeHtml(prizes[0]?.value||'')}"></div>
+    <div class="prize-row"><label>Juara 2</label><input class="cat-prize2" placeholder="misal: Rp 200.000" value="${escapeHtml(prizes[1]?.value||'')}"></div>
+    <div class="prize-row"><label>Juara 3</label><input class="cat-prize3" placeholder="misal: Rp 100.000" value="${escapeHtml(prizes[2]?.value||'')}"></div>
+  `;
+  div._results = data?.results || null;
+  document.getElementById('category-list').appendChild(div);
+}
+
+function toggleTeamFields(sel){
+  const block = sel.closest('.category-block');
+  block.querySelector('.cat-teamsize').classList.toggle('hidden', sel.value !== 'tim');
+}
+
+async function saveEvent(){
+  const name = document.getElementById('f-name').value.trim();
+  const date = document.getElementById('f-date').value;
+  const location = document.getElementById('f-location').value.trim();
+  const description = document.getElementById('f-desc').value.trim();
+  const image = document.getElementById('f-photo').value.trim();
+  const existing = editingEventId ? events.find(event=>event.id===editingEventId) : null;
+
+  if(!name || !date || !location){
+    toast('Field wajib (nama, tanggal, lokasi) belum lengkap');
+    return;
+  }
+  if(existing && existing.mode !== currentMode && (participants[existing.id]||[]).length){
+    toast('Mode event tidak dapat diubah selama masih memiliki peserta');
+    return;
+  }
+
+  let payload = {
+    ...(existing || {}),
+    id:existing?.id || uid(),
+    slug:existing?.slug || slugify(name),
+    name,
+    flagEmoji:document.getElementById('f-flag').value.trim(),
+    tagline:document.getElementById('f-tagline').value.trim() || description,
+    description,
+    date,
+    location,
+    image,
+    mode:currentMode,
+    active:existing?.active || false,
+    results:existing?.results || null
+  };
+
+  if(currentMode === 'A'){
+    const cap = document.getElementById('f-cap-a').value;
+    if(!cap || Number(cap) <= 0){
+      toast('Kapasitas wajib diisi dan harus lebih dari 0');
+      return;
+    }
+    payload.capacity = Number(cap);
+    payload.rules = document.getElementById('f-rules-a').value;
+    payload.prizes = normalizePrizes([
+      document.getElementById('f-prize-a1').value,
+      document.getElementById('f-prize-a2').value,
+      document.getElementById('f-prize-a3').value,
+    ]);
+    payload.extraFields = [...document.querySelectorAll('#extra-field-list .extra-field-block')].map((block,index)=>({
+      id:block.dataset.fieldId || `field-${index+1}`,
+      label:block.querySelector('.extra-label').value.trim(),
+      type:block.querySelector('.extra-type').value,
+      required:block.querySelector('.extra-required').value === 'true',
+      placeholder:block.querySelector('.extra-placeholder').value.trim()
+    })).filter(field=>field.label);
+    payload.categories = [];
+  } else {
+    const blocks = [...document.querySelectorAll('#category-list .category-block')];
+    if(blocks.length === 0){
+      toast('Minimal harus ada 1 kategori untuk Mode Dengan Kategori');
+      return;
+    }
+    const categories = [];
+    for(const b of blocks){
+      const cname = b.querySelector('.cat-name').value.trim();
+      const ctype = b.querySelector('.cat-type').value;
+      const ccap = b.querySelector('.cat-cap').value;
+      if(!cname || !ccap || Number(ccap) <= 0){
+        toast('Setiap kategori wajib punya nama & kapasitas > 0');
+        return;
+      }
+      const previous = existing?.categories?.find(category=>category.id===b.dataset.cid);
+      const cat = { id:b.dataset.cid || uid(), name: cname, type: ctype, capacity: Number(ccap),
+        rules: b.querySelector('.cat-rules').value,
+        prizes: normalizePrizes([b.querySelector('.cat-prize1').value, b.querySelector('.cat-prize2').value, b.querySelector('.cat-prize3').value]),
+        results:previous?.results || b._results || null,
+        participants:previous?.participants || [] };
+      if(ctype === 'tim'){
+        const mode = b.querySelector('.cat-teamsize-select').value;
+        const teamSize = Number(b.querySelector('.cat-teamsize-num').value);
+        if(mode === 'fixed' && teamSize < 1){
+          toast(`Jumlah anggota tim untuk ${cname} wajib lebih dari 0`);
+          return;
+        }
+        cat.teamSize = mode === 'fixed' ? teamSize : 'bebas';
+      }
+      categories.push(cat);
+    }
+    const removedWithParticipants = (existing?.categories || []).find(category=>
+      !categories.some(item=>item.id===category.id) && (participants[existing.id]||[]).some(p=>p.categoryId===category.id)
+    );
+    if(removedWithParticipants){
+      toast(`Kategori ${removedWithParticipants.name} masih memiliki peserta dan tidak dapat dihapus`);
+      return;
+    }
+    payload.categories = categories;
+    payload.capacity = 0;
+    payload.rules = '';
+    payload.prizes = [];
+    payload.extraFields = [];
+  }
+
+  const previousEvents = events.slice();
+  try{
+    if(existing){
+      const index = events.findIndex(event=>event.id===existing.id);
+      events[index] = normalizeEvent(payload,index);
+    } else {
+      events.push(normalizeEvent(payload,events.length));
+      participants[payload.id] = [];
+    }
+    syncNestedParticipants(payload.id);
+    await persistEvent(events.find(event=>event.id===payload.id));
+    closeModal('modal-event');
+    renderEventTable();
+    toast(apiIsConfigured()
+      ? (existing ? 'Event berhasil diperbarui' : 'Event baru dibuat — status Nonaktif, aktifkan saat siap')
+      : 'Event disimpan pada mode preview');
+  }catch(error){
+    events = previousEvents;
+    toast(error.message || 'Event gagal disimpan');
+  }
+}
+
+/* ---- Result modal ---- */
+function openResultModal(id){
+  const e = events.find(x=>x.id===id);
+  if(!e) return;
+  const body = document.getElementById('result-body');
+  document.getElementById('modal-result').dataset.eventId = id;
+  if(e.mode === 'A'){
+    body.innerHTML = `
+      <div class="field"><label>Juara 1</label><input id="res-1" value="${escapeHtml(e.results?.[0]?.nama||'')}" placeholder="Nama pemenang"></div>
+      <div class="field"><label>Juara 2</label><input id="res-2" value="${escapeHtml(e.results?.[1]?.nama||'')}" placeholder="Nama pemenang"></div>
+      <div class="field"><label>Juara 3</label><input id="res-3" value="${escapeHtml(e.results?.[2]?.nama||'')}" placeholder="Nama pemenang"></div>
+    `;
+  } else {
+    body.innerHTML = e.categories.map((c,ci) => `
+      <div class="section-label" style="border-top:${ci===0?'none':'1px solid var(--border)'};">${escapeHtml(c.name)}</div>
+      <div class="field"><label>Juara 1</label><input id="res-${ci}-1" value="${escapeHtml(c.results?.[0]?.nama||'')}" placeholder="${c.type==='tim'?'Nama tim':'Nama orang'}"></div>
+      <div class="field"><label>Juara 2</label><input id="res-${ci}-2" value="${escapeHtml(c.results?.[1]?.nama||'')}" placeholder="${c.type==='tim'?'Nama tim':'Nama orang'}"></div>
+      <div class="field"><label>Juara 3</label><input id="res-${ci}-3" value="${escapeHtml(c.results?.[2]?.nama||'')}" placeholder="${c.type==='tim'?'Nama tim':'Nama orang'}"></div>
+    `).join('');
+  }
+  openModal('modal-result');
+}
+function collectResults(prefix, prizes){
+  return [1,2,3].map((position,index)=>{
+    const nama = document.getElementById(`${prefix}${position}`)?.value.trim() || '';
+    return nama ? {posisi:`Juara ${position}`,nama,hadiah:prizes?.[index]?.value || ''} : null;
+  }).filter(Boolean);
+}
+async function saveResult(){
+  const eventId = document.getElementById('modal-result').dataset.eventId;
+  const event = events.find(item=>item.id===eventId);
+  if(!event) return;
+  if(event.mode === 'A') event.results = collectResults('res-',event.prizes);
+  else event.categories.forEach((category,index)=>{ category.results = collectResults(`res-${index}-`,category.prizes); });
+  try{
+    await persistEvent(event);
+    closeModal('modal-result');
+    toast(apiIsConfigured() ? 'Hasil pemenang tersimpan — otomatis tampil di halaman publik' : 'Hasil tersimpan pada mode preview');
+  }catch(error){
+    toast(error.message || 'Hasil pemenang gagal disimpan');
+  }
+}
+
+/* ============ KELOLA PESERTA ============ */
+function renderParticipants(el, topAction){
+  const opts = events.map(e => `<option value="${e.id}" ${e.id===currentParticipantsEventId?'selected':''}>${escapeHtml(e.name)}</option>`).join('');
+  topAction.innerHTML = `<button class="btn btn-outline btn-sm" onclick="downloadExcel(currentParticipantsEventId)">⬇ Download Excel</button>`;
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div style="min-width:220px;">
+          <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:5px;">Pilih Event</label>
+          <select class="search-input" id="pt-event" style="width:100%;" onchange="switchParticipantEvent(this.value)">${opts}</select>
+        </div>
+        <div class="toolbar" style="align-self:flex-end;">
+          <input class="search-input" id="pt-search" placeholder="Cari nama..." oninput="renderParticipantTable()">
+          <select class="search-input" id="pt-filter-div" onchange="renderParticipantTable()"><option value="">Semua Divisi</option></select>
+          <select class="search-input" id="pt-filter-cat" onchange="renderParticipantTable()"><option value="">Semua Kategori</option></select>
+        </div>
+      </div>
+      <div id="participant-table-wrap"></div>
+    </div>
+  `;
+  populateParticipantFilters();
+  renderParticipantTable();
+}
+
+function switchParticipantEvent(id){
+  currentParticipantsEventId = String(id);
+  populateParticipantFilters();
+  renderParticipantTable();
+}
+
+function populateParticipantFilters(){
+  const list = participants[currentParticipantsEventId] || [];
+  const divs = [...new Set(list.map(p=>p.divisi))];
+  const cats = [...new Set(list.map(p=>p.category).filter(Boolean))];
+  const divSel = document.getElementById('pt-filter-div');
+  const catSel = document.getElementById('pt-filter-cat');
+  divSel.innerHTML = `<option value="">Semua Divisi</option>` + divs.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  const e = events.find(x=>x.id===currentParticipantsEventId);
+  if(e?.mode === 'B'){
+    catSel.style.display = '';
+    catSel.innerHTML = `<option value="">Semua Kategori</option>` + cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  } else {
+    catSel.style.display = 'none';
+  }
+}
+
+function renderParticipantTable(){
+  const wrap = document.getElementById('participant-table-wrap');
+  const e = events.find(x=>x.id===currentParticipantsEventId);
+  if(!e){
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Belum ada event</h4><p>Buat event terlebih dahulu.</p></div>`;
+    return;
+  }
+  const q = (document.getElementById('pt-search')?.value||'').toLowerCase();
+  const fd = document.getElementById('pt-filter-div')?.value||'';
+  const fc = document.getElementById('pt-filter-cat')?.value||'';
+  let list = (participants[currentParticipantsEventId]||[]).filter(p =>
+    normalizeText(p.name).includes(normalizeText(q)) && (!fd || p.divisi===fd) && (!fc || p.category===fc)
+  );
+
+  if(list.length===0){
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">👥</div><h4>Belum ada peserta</h4><p>Belum ada peserta yang cocok / mendaftar untuk event ini.</p></div>`;
+    return;
+  }
+
+  if(e.mode === 'A'){
+    wrap.innerHTML = participantTable(list);
+    return;
+  }
+
+  // Mode B: group by category, then by team
+  let html = '';
+  const byCat = {};
+  list.forEach(p => { (byCat[p.category] = byCat[p.category]||[]).push(p); });
+  Object.keys(byCat).forEach(cat => {
+    html += `<div class="group-title">${escapeHtml(cat)}</div>`;
+    const catItems = byCat[cat];
+    const hasTeam = catItems.some(p=>p.team);
+    if(hasTeam){
+      const byTeam = {};
+      catItems.forEach(p => { (byTeam[p.team]=byTeam[p.team]||[]).push(p); });
+      Object.keys(byTeam).forEach(team => {
+        html += `<div class="team-title">Tim "${escapeHtml(team)}"</div>`;
+        html += participantTable(byTeam[team], true);
+      });
+    } else {
+      html += participantTable(catItems);
+    }
+  });
+  wrap.innerHTML = html;
+}
+
+function participantTable(list, compact){
+  return `
+    <table>
+      ${compact ? '' : `<thead><tr><th>No.</th><th>Nama</th><th>Divisi</th><th>Telegram</th><th>Data Tambahan</th><th>Aksi</th></tr></thead>`}
+      <tbody>
+        ${list.map(p => `
+          <tr class="row-hover">
+            <td class="mono">${escapeHtml(p.registrationNumber || p.id)}</td>
+            <td class="name-cell">${escapeHtml(p.name)}</td>
+            <td>${escapeHtml(p.divisi)}</td>
+            <td class="mono">@${escapeHtml(p.telegram)}</td>
+            <td>${participantExtraHtml(p)}</td>
+            <td>
+              <div class="row-actions">
+                <button class="icon-btn" title="Hubungi Telegram" onclick="window.open('https://t.me/${encodeURIComponent(p.telegram)}','_blank','noopener')">✈</button>
+                <button class="icon-btn" title="Edit" onclick="openEditParticipant('${p.id}')">✎</button>
+                <button class="icon-btn" title="Hapus" style="color:var(--red);border-color:var(--red-soft);" onclick="confirmDeleteParticipant('${p.id}')">🗑</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function participantExtraHtml(participant){
+  const entries = Object.entries(participant.extra || {}).filter(([,value])=>value !== '' && value != null);
+  return entries.length
+    ? entries.map(([key,value])=>`<div><strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}</div>`).join('')
+    : '<span class="sub-cell">—</span>';
+}
+
+function openEditParticipant(id){
+  editingParticipantId = id;
+  const p = participants[currentParticipantsEventId].find(x=>x.id===id);
+  document.getElementById('ep-name').value = p.name;
+  document.getElementById('ep-divisi').value = p.divisi;
+  document.getElementById('ep-telegram').value = p.telegram;
+  openModal('modal-edit-participant');
+}
+async function savePartticipantEdit(){
+  const p = participants[currentParticipantsEventId].find(x=>x.id===editingParticipantId);
+  const update = {
+    ...p,
+    name:document.getElementById('ep-name').value.trim(),
+    divisi:document.getElementById('ep-divisi').value.trim(),
+    telegram:document.getElementById('ep-telegram').value.trim().replace(/^@+/, '')
+  };
+  if(!update.name || !update.divisi || !update.telegram){
+    toast('Nama, divisi, dan Telegram wajib diisi');
+    return;
+  }
+  try{
+    if(apiIsConfigured()){
+      await AxgApi.updateParticipant(update);
+      await reloadAdminData();
+    } else {
+      Object.assign(p,update);
+      syncNestedParticipants(currentParticipantsEventId);
+    }
+    closeModal('modal-edit-participant');
+    populateParticipantFilters();
+    renderParticipantTable();
+    toast(apiIsConfigured() ? 'Data peserta diperbarui' : 'Data peserta diperbarui pada mode preview');
+  }catch(error){
+    toast(error.message || 'Data peserta gagal diperbarui');
+  }
+}
+
+function confirmDeleteParticipant(id){
+  const p = participants[currentParticipantsEventId].find(x=>x.id===id);
+  document.getElementById('confirm-title').textContent = 'Hapus Peserta Ini?';
+  document.getElementById('confirm-text').innerHTML = `Peserta <strong>${escapeHtml(p.name)}</strong> (${escapeHtml(p.divisi)}) akan dihapus dari event ini. Aksi ini tidak bisa dibatalkan.`;
+  const btn = document.getElementById('confirm-btn');
+  btn.textContent = 'Ya, Hapus';
+  btn.onclick = async () => {
+    try{
+      if(apiIsConfigured()){
+        await AxgApi.deleteParticipant(id);
+        await reloadAdminData();
+      } else {
+        participants[currentParticipantsEventId] = participants[currentParticipantsEventId].filter(x=>x.id!==id);
+        syncNestedParticipants(currentParticipantsEventId);
+      }
+      closeModal('modal-confirm');
+      populateParticipantFilters();
+      renderParticipantTable();
+      toast(apiIsConfigured() ? 'Peserta berhasil dihapus' : 'Peserta dihapus pada mode preview');
+    }catch(error){
+      toast(error.message || 'Peserta gagal dihapus');
+    }
+  };
+  openModal('modal-confirm');
+}
+
+/* ============ MODAL HELPERS ============ */
+function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>
