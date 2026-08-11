@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -7,6 +8,7 @@
 <link rel="icon" type="image/webp" href="https://i.postimg.cc/pdDHkcRS/AXG-LOGO.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#FAF9F5;
@@ -51,16 +53,14 @@
   .field input, .field select, .field textarea{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;color:var(--ink);transition:border-color .15s;}
   .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft);}
   .field .err{color:var(--red);font-size:12px;margin-top:5px;display:none;}
-  .password-wrap{position:relative;}
-  .password-wrap input{padding-right:46px;}
-  .password-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:7px;background:transparent;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;}
-  .password-toggle:hover{background:var(--surface-alt);color:var(--gold-deep);}
-  .password-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  .password-toggle .eye-off{display:none;}
-  .password-toggle.is-visible .eye-on{display:none;}
-  .password-toggle.is-visible .eye-off{display:block;}
+  .field-password-wrap{position:relative;}
+  .field-password-wrap input{padding-right:42px;}
+  .toggle-password{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:30px;height:30px;border:none;background:transparent;color:var(--ink-faint);display:flex;align-items:center;justify-content:center;border-radius:6px;padding:0;}
+  .toggle-password:hover{color:var(--ink-soft);background:var(--surface-alt);}
+  .toggle-password svg{width:18px;height:18px;}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;padding:11px 18px;font-weight:600;font-size:13.5px;transition:transform .12s, box-shadow .12s, background .15s;}
   .btn:active{transform:scale(0.98);}
+  .btn:disabled{opacity:.65;cursor:not-allowed;transform:none;}
   .btn-gold{background:var(--gold);color:#fff;}
   .btn-gold:hover{background:var(--gold-deep);box-shadow:0 4px 14px rgba(173,132,37,0.28);}
   .btn-block{width:100%;}
@@ -72,6 +72,10 @@
   .btn-ghost:hover{color:var(--ink);background:var(--surface-alt);}
   .btn-sm{padding:7px 11px;font-size:12.5px;border-radius:7px;}
   .login-note{margin-top:18px;font-size:11.5px;color:var(--ink-faint);}
+  .spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .session-banner{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--red-soft);color:var(--red);font-size:12px;text-align:left;display:none;}
+  .session-banner.show{display:block;}
 
   /* ---------- SHELL ---------- */
   #view-shell{display:none;min-height:100vh;}
@@ -207,17 +211,17 @@
     <p class="sub">Masuk untuk mengelola event &amp; peserta</p>
     <div class="field">
       <label for="pw">Password</label>
-      <div class="password-wrap">
+      <div class="field-password-wrap">
         <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-        <button type="button" class="password-toggle" id="pw-toggle" aria-label="Tampilkan sandi" aria-pressed="false" onclick="togglePasswordVisibility()">
-          <svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>
-          <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"></path><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 2.8M6.3 6.3C3.9 8 2.5 12 2.5 12s3.5 6 9.5 6c1 0 2-.2 2.8-.5"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+        <button type="button" class="toggle-password" id="toggle-pw" onclick="togglePasswordVisibility()" aria-label="Tampilkan password" title="Tampilkan password">
+          <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
       <div class="err" id="pw-err">Token Admin tidak valid.</div>
     </div>
-    <button class="btn btn-gold btn-block" onclick="doLogin()">MASUK</button>
+    <button class="btn btn-gold btn-block" id="login-btn" onclick="doLogin()">MASUK</button>
     <p class="login-note">Gunakan token Admin dari Script Properties. Token tidak disimpan di source code.</p>
+    <div class="session-banner" id="session-banner"></div>
   </div>
 </div>
 
@@ -284,9 +288,10 @@
         <div class="field"><label>Tanggal</label><input id="f-date" type="date"></div>
       </div>
       <div class="grid-2">
+        <div class="field"><label>Prefix Nomor Pendaftaran</label><input id="f-prefix" maxlength="8" placeholder="misal: AXG"></div>
         <div class="field"><label>Emoji / Ikon</label><input id="f-flag" placeholder="misal: 🇮🇩"></div>
-        <div class="field"><label>Tagline</label><input id="f-tagline" placeholder="Ringkasan singkat untuk kartu event"></div>
       </div>
+      <div class="field"><label>Tagline</label><input id="f-tagline" placeholder="Ringkasan singkat untuk kartu event"></div>
       <div class="field"><label>Deskripsi</label><textarea id="f-desc" rows="2" placeholder="Deskripsi lengkap event"></textarea></div>
       <div class="grid-2">
         <div class="field"><label>Tempat / Lokasi Acara</label><input id="f-location" placeholder="misal: Mess 96 – Area Dapur Lantai 1"></div>
@@ -454,6 +459,7 @@ function apiIsConfigured(){
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function normalizeText(value){ return String(value||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function normalizePrefix(value){ return String(value||'AXG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'AXG'; }
 function slugify(value){
   return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -524,6 +530,7 @@ function normalizeEvent(event,index){
     location:event.location || '',
     image:event.image || event.photo || '',
     mode,
+    prefix:normalizePrefix(event.prefix),
     active:event.active === true || String(event.active).toLowerCase() === 'true',
     capacity:Number(event.capacity || 0),
     rules:event.rules || '',
@@ -580,17 +587,9 @@ const AxgApi = {
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({action,adminToken,...data})
     });
-    if(!response.ok){
-      const error = new Error(`HTTP ${response.status}`);
-      error.code = 'HTTP_ERROR';
-      throw error;
-    }
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    if(!payload.ok){
-      const error = new Error(payload.error?.message || 'Permintaan API gagal.');
-      error.code = payload.error?.code || 'API_ERROR';
-      throw error;
-    }
+    if(!payload.ok) throw new Error(payload.error?.message || 'Permintaan API gagal.');
     return payload.data;
   },
   authenticate(){ return this.request('authenticate'); },
@@ -633,26 +632,35 @@ let editingParticipantId = null;
 /* ============ LOGIN ============ */
 function togglePasswordVisibility(){
   const input = document.getElementById('pw');
-  const button = document.getElementById('pw-toggle');
-  const showPassword = input.type === 'password';
-  input.type = showPassword ? 'text' : 'password';
-  button.classList.toggle('is-visible', showPassword);
-  button.setAttribute('aria-pressed', String(showPassword));
-  button.setAttribute('aria-label', showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi');
-  input.focus();
+  const btn = document.getElementById('toggle-pw');
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.setAttribute('aria-label', showing ? 'Tampilkan password' : 'Sembunyikan password');
+  btn.title = showing ? 'Tampilkan password' : 'Sembunyikan password';
+  document.getElementById('eye-icon').innerHTML = showing
+    ? '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/>'
+    : '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a20.7 20.7 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/>';
+}
+
+function setLoginLoading(loading){
+  const btn = document.getElementById('login-btn');
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span> Memproses...' : 'MASUK';
 }
 
 async function doLogin(){
   const pw = document.getElementById('pw').value;
   const err = document.getElementById('pw-err');
+  err.style.display = 'none';
   if(!pw){
     err.textContent = 'Token Admin wajib diisi.';
     err.style.display = 'block';
     return;
   }
   adminToken = pw;
+  setLoginLoading(true);
   try{
-    /* getEvents scope Admin sekaligus memvalidasi token, jadi cukup satu request. */
+    // getEvents dengan scope Admin sekaligus memvalidasi token dan memuat data.
     await reloadAdminData();
     saveAdminSession(adminToken);
     document.getElementById('view-login').style.display = 'none';
@@ -664,6 +672,8 @@ async function doLogin(){
     clearAdminSession();
     err.textContent = error.message || 'Token Admin tidak valid.';
     err.style.display = 'block';
+  } finally {
+    setLoginLoading(false);
   }
 }
 function doLogout(){
@@ -675,25 +685,38 @@ function doLogout(){
   document.getElementById('pw-err').style.display = 'none';
 }
 
+/* Sesi hanya dihapus kalau server memang MENOLAK token (mis. password salah).
+   Kalau errornya jaringan/timeout/Apps Script lagi lambat, sesi TETAP disimpan
+   supaya user tidak perlu login ulang setiap refresh gara-gara koneksi lambat. */
+function isAuthRejectionError(error){
+  const msg = String(error?.message || '').toLowerCase();
+  return msg.includes('token') || msg.includes('unauthor') || msg.includes('401') || msg.includes('403') || msg.includes('invalid');
+}
+
 async function restoreAdminSession(){
   const session = getAdminSession();
   if(!session) return;
   adminToken = session.token;
+  const banner = document.getElementById('session-banner');
   try{
-    /* Satu request ini memvalidasi token dan memuat data Admin. */
+    // Cukup 1 kali panggilan (getEvents) untuk sekaligus memvalidasi token DAN memuat data,
+    // dibanding sebelumnya authenticate() + getEvents() (2x round-trip ke Apps Script).
     await reloadAdminData();
     document.getElementById('view-login').style.display = 'none';
     document.getElementById('view-shell').classList.add('active');
     showPage('dashboard');
   }catch(error){
-    const invalidSession = error.code === 'UNAUTHORIZED' || error.code === 'ADMIN_NOT_CONFIGURED';
-    adminToken = '';
-    if(invalidSession) clearAdminSession();
-    const err = document.getElementById('pw-err');
-    err.textContent = invalidSession
-      ? 'Sesi Admin berakhir. Silakan login kembali.'
-      : 'Koneksi API sedang terganggu. Refresh kembali beberapa saat lagi.';
-    err.style.display = 'block';
+    if(isAuthRejectionError(error) || !apiIsConfigured()){
+      // Token memang ditolak server -> baru hapus sesi & minta login ulang.
+      adminToken = '';
+      clearAdminSession();
+    } else {
+      // Kemungkinan besar cuma jaringan/Apps Script lambat -> JANGAN hapus sesi.
+      // Biarkan tampil di halaman login dengan info, token tetap tersimpan untuk dicoba lagi.
+      banner.textContent = 'Gagal menyambung ke server (mungkin koneksi lambat). Token Anda masih tersimpan — coba klik MASUK lagi.';
+      banner.classList.add('show');
+      document.getElementById('pw').value = session.token;
+    }
   }
 }
 
@@ -850,24 +873,52 @@ async function toggleActive(id){
 function downloadExcel(id){
   const e = events.find(x=>x.id===id);
   if(!e) return;
+  if(!window.XLSX){
+    toast('Modul Excel belum termuat. Periksa koneksi internet lalu coba lagi.');
+    return;
+  }
   const list = participants[e.id] || [];
-  const headers = ['Nomor Pendaftaran','Nama','Divisi','Telegram','Kategori','Tim'];
-  const escapeCsv = value => `"${String(value||'').replace(/"/g,'""')}"`;
-  const rows = list.map(p=>[
-    p.registrationNumber || p.id,
-    p.name,
-    p.divisi,
-    p.telegram ? '@'+p.telegram : '',
-    p.category || '',
-    p.team || ''
-  ].map(escapeCsv).join(','));
-  const blob = new Blob(['\ufeff'+[headers.map(escapeCsv).join(','),...rows].join('\n')], {type:'text/csv;charset=utf-8'});
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `${slugify(e.name)||'axg-event'}-peserta.csv`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  toast('Data peserta berhasil diunduh');
+  const categoryRows = e.mode === 'B' ? e.categories.map(category=>({
+    category:category.name,
+    capacity:category.capacity,
+    registered:category.type === 'tim' ? new Set(category.participants.map(participant=>normalizeText(participant.team)).filter(Boolean)).size : category.participants.length,
+    unit:category.type === 'tim' ? 'Tim' : 'Peserta'
+  })) : [{category:'Tanpa Kategori',capacity:e.capacity,registered:list.length,unit:'Peserta'}];
+  const summaryRows = [
+    ['RINGKASAN EVENT', e.name],
+    ['Tanggal', e.date || '-'],
+    ['Lokasi', e.location || '-'],
+    ['Prefix Pendaftaran', normalizePrefix(e.prefix)],
+    [],
+    ['Kategori','Terdaftar','Kapasitas','Satuan']
+  ].concat(categoryRows.map(item=>[item.category,item.registered,item.capacity,item.unit]));
+  const detailRows = [];
+  const detailHeaders = ['Nomor Pendaftaran','Nama','Divisi','Telegram','Kategori','Tim'];
+  const groups = e.mode === 'B' ? e.categories.map(category=>({name:category.name,items:category.participants})) : [{name:'Peserta',items:list}];
+  groups.forEach(group=>{
+    detailRows.push([`Kategori: ${group.name}`]);
+    detailRows.push(detailHeaders);
+    const ordered = group.items.slice().sort((a,b)=> String(a.team||'').localeCompare(String(b.team||''),'id') || String(a.name||'').localeCompare(String(b.name||''),'id'));
+    if(!ordered.length) detailRows.push(['Belum ada peserta']);
+    ordered.forEach(p=>detailRows.push([
+      p.registrationNumber || p.id,
+      p.name,
+      p.divisi,
+      p.telegram ? '@'+p.telegram : '',
+      p.category || group.name,
+      p.team || '-'
+    ]));
+    detailRows.push([]);
+  });
+  const workbook = XLSX.utils.book_new();
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  const detailSheet = XLSX.utils.aoa_to_sheet(detailRows);
+  summarySheet['!cols'] = [{wch:28},{wch:28},{wch:14},{wch:14}];
+  detailSheet['!cols'] = [{wch:22},{wch:28},{wch:18},{wch:22},{wch:24},{wch:22}];
+  XLSX.utils.book_append_sheet(workbook,summarySheet,'Ringkasan');
+  XLSX.utils.book_append_sheet(workbook,detailSheet,'Peserta');
+  XLSX.writeFile(workbook,`${slugify(e.name)||'axg-event'}-peserta.xlsx`);
+  toast('Excel peserta berhasil diunduh');
 }
 
 function confirmDeleteEvent(id){
@@ -907,6 +958,7 @@ function openEventModal(id){
 
   document.getElementById('event-modal-title').textContent = id ? 'Edit Event' : 'Buat Event Baru';
   document.getElementById('f-name').value = e ? e.name : '';
+  document.getElementById('f-prefix').value = e ? normalizePrefix(e.prefix) : 'AXG';
   document.getElementById('f-flag').value = e ? e.flagEmoji : '';
   document.getElementById('f-tagline').value = e ? e.tagline : '';
   document.getElementById('f-desc').value = e ? e.description : '';
@@ -1039,6 +1091,7 @@ async function saveEvent(){
     id:existing?.id || uid(),
     slug:existing?.slug || slugify(name),
     name,
+    prefix:normalizePrefix(document.getElementById('f-prefix').value || existing?.prefix),
     flagEmoji:document.getElementById('f-flag').value.trim(),
     tagline:document.getElementById('f-tagline').value.trim() || description,
     description,
