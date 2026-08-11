@@ -1,5 +1,6 @@
 [Uploading README (1).md…]()
-# AXG EVENT
+# AXG EVENT x mosionto
+
 
 Website pendaftaran event AXG beserta Panel Admin. Halaman Public dan Admin memakai satu Google Apps Script API yang menyimpan data ke Google Sheets.
 
