@@ -718,6 +718,7 @@ function normalizeEvent(event, index){
     location: event.location || '',
     image: event.image || event.photo || PLACEHOLDER_IMG,
     mode,
+    prefix: normalizePrefix(event.prefix),
     active: event.active === true || String(event.active).toLowerCase() === 'true',
     capacity: Number(event.capacity || 0),
     rules: event.rules || '',
@@ -773,7 +774,8 @@ async function loadEvents(){
 /* =====================================================================
    HELPERS
    ===================================================================== */
-function fmtRegNo(n){ return 'AXG-' + String(n).padStart(4,'0'); }
+function normalizePrefix(value){ return String(value||'AXG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'AXG'; }
+function fmtRegNo(prefix,n){ return `${normalizePrefix(prefix)}-${String(n).padStart(4,'0')}`; }
 
 function getEventCounts(ev){
   if(ev.mode === 'A'){
@@ -1302,14 +1304,12 @@ async function handleSubmit(e){
     }
   }
 
-  // cek duplikat (nama + divisi pada event yang sama)
-  const allParticipants = ev.mode === 'A' ? ev.participants : ev.categories.flatMap(c=>c.participants);
-  const dup = allParticipants.some(p => normalizeText(p.name)===normalizeText(nama) && normalizeText(p.divisi)===normalizeText(divisi));
-  if(dup){ showAlert('Anda sudah terdaftar pada event ini.'); return false; }
-
   // simpan pendaftaran
   let catName = null, teamName = null;
   const cat = ev.mode === 'B' ? ev.categories.find(c=>c.id===category) : null;
+  const scopedParticipants = ev.mode === 'A' ? ev.participants : (cat ? cat.participants : []);
+  const dup = scopedParticipants.some(p => normalizeText(p.name)===normalizeText(nama) && normalizeText(p.divisi)===normalizeText(divisi));
+  if(dup){ showAlert(cat ? `Anda sudah terdaftar pada kategori "${cat.name}".` : 'Anda sudah terdaftar pada event ini.'); return false; }
   if(cat){
     catName = cat.name;
     teamName = cat.type === 'tim' ? (team === '__new__' ? newTeamName : team) : null;
@@ -1335,12 +1335,12 @@ async function handleSubmit(e){
       if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
       const maxNumber = events.flatMap(item=> item.mode==='A' ? item.participants : item.categories.flatMap(c=>c.participants))
         .reduce((max,p)=>{
-          const match = String(p.registrationNumber || p.id || '').match(/AXG-(\d+)/i);
+          const match = String(p.registrationNumber || p.id || '').match(new RegExp(`^${normalizePrefix(ev.prefix)}-(\\d+)$`,'i'));
           return match ? Math.max(max, Number(match[1])) : max;
         },0);
       saved = {
         id:uid(),
-        registrationNumber:fmtRegNo(maxNumber+1),
+        registrationNumber:fmtRegNo(ev.prefix,maxNumber+1),
         name:nama,
         divisi,
         telegram:telegram.replace(/^@+/,''),
