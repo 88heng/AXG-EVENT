@@ -6,7 +6,7 @@
 <link rel="icon" type="image/webp" href="https://i.postimg.cc/pdDHkcRS/AXG-LOGO.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha256-yVBhl8r4CaB1tt7h2g02+xnacVj/6KiOewyWxdhiPJk=" crossorigin="anonymous"></script>
 <style>
   :root{
     --bg:#FAF9F5;
@@ -372,6 +372,8 @@
       <div class="field"><label>Nama</label><input id="ep-name"></div>
       <div class="field"><label>Divisi</label><input id="ep-divisi"></div>
       <div class="field"><label>Telegram</label><input id="ep-telegram"></div>
+      <div class="field hidden" id="ep-category-wrap"><label>Kategori</label><select id="ep-category" onchange="onEditCategoryChange()"></select></div>
+      <div class="field hidden" id="ep-team-wrap"><label>Nama Team</label><input id="ep-team" placeholder="misal: Team Garuda"></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeModal('modal-edit-participant')">Batal</button>
@@ -694,17 +696,28 @@ function isAuthRejectionError(error){
   return ['UNAUTHORIZED','AUTH_FAILED','INVALID_TOKEN','FORBIDDEN'].includes(String(error?.code || '').toUpperCase());
 }
 
+function adminLoadingHtml(){
+  return `<div class="empty-state"><div class="em-mark">⏳</div><h4>Memuat data admin…</h4><p>Menyambungkan ke Google Apps Script.</p></div>`;
+}
+function adminLoadErrorHtml(message){
+  return `<div class="empty-state"><div class="em-mark">⚠️</div><h4>Data terbaru belum tersambung</h4><p>${escapeHtml(message||'Sesi Anda tetap aktif; silakan coba lagi.')}</p><button class="btn btn-outline btn-sm" onclick="restoreAdminSession()">Coba Lagi</button></div>`;
+}
+
 async function restoreAdminSession(){
   const session = getAdminSession();
   if(!session) return;
   adminToken = session.token;
-  const banner = document.getElementById('session-banner');
   // Jangan tahan pengguna di layar login hanya karena Apps Script sedang cold-start.
   document.getElementById('view-login').style.display = 'none';
   document.getElementById('view-shell').classList.add('active');
-  showPage('dashboard');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === 'dashboard'));
+  document.getElementById('page-title').textContent = 'Dashboard';
+  document.getElementById('topbar-action').innerHTML = '';
+  /* Tampilkan status memuat dulu -- JANGAN render dashboard dengan data
+     dummy/mock sampai data asli berhasil diambil dari server, supaya tidak
+     terlihat seolah-olah itu data peserta sungguhan. */
+  document.getElementById('content').innerHTML = adminLoadingHtml();
   try{
-    // Memuat data terbaru di belakang layar; kegagalan jaringan tidak boleh mengeluarkan admin.
     await reloadAdminData();
     saveAdminSession(adminToken);
     showPage('dashboard');
@@ -715,9 +728,9 @@ async function restoreAdminSession(){
       clearAdminSession();
       doLogout();
     } else {
-      // Kemungkinan besar cuma jaringan/Apps Script lambat -> sesi dan panel tetap aktif.
-      banner.textContent = 'Data terbaru belum tersambung. Sesi Anda tetap aktif; silakan refresh beberapa saat lagi.';
-      banner.classList.add('show');
+      // Kemungkinan besar cuma jaringan/Apps Script lambat -> sesi tetap aktif,
+      // tapi tampilkan status gagal-muat (bukan dashboard dengan data dummy).
+      document.getElementById('content').innerHTML = adminLoadErrorHtml(error.message);
     }
   }
 }
@@ -1367,10 +1380,31 @@ function openEditParticipant(id){
   document.getElementById('ep-name').value = p.name;
   document.getElementById('ep-divisi').value = p.divisi;
   document.getElementById('ep-telegram').value = p.telegram;
+
+  const event = events.find(x=>x.id===currentParticipantsEventId);
+  const catWrap = document.getElementById('ep-category-wrap');
+  const teamWrap = document.getElementById('ep-team-wrap');
+  if(event && event.mode === 'B'){
+    catWrap.classList.remove('hidden');
+    const catSelect = document.getElementById('ep-category');
+    catSelect.innerHTML = event.categories.map(c=>`<option value="${c.id}" ${c.id===p.categoryId?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
+    document.getElementById('ep-team').value = p.team || '';
+    onEditCategoryChange();
+  } else {
+    catWrap.classList.add('hidden');
+    teamWrap.classList.add('hidden');
+  }
   openModal('modal-edit-participant');
+}
+function onEditCategoryChange(){
+  const event = events.find(x=>x.id===currentParticipantsEventId);
+  const catId = document.getElementById('ep-category').value;
+  const category = event?.categories.find(c=>c.id===catId);
+  document.getElementById('ep-team-wrap').classList.toggle('hidden', !category || category.type !== 'tim');
 }
 async function savePartticipantEdit(){
   const p = participants[currentParticipantsEventId].find(x=>x.id===editingParticipantId);
+  const event = events.find(x=>x.id===currentParticipantsEventId);
   const update = {
     ...p,
     name:document.getElementById('ep-name').value.trim(),
@@ -1380,6 +1414,20 @@ async function savePartticipantEdit(){
   if(!update.name || !update.divisi || !update.telegram){
     toast('Nama, divisi, dan Telegram wajib diisi');
     return;
+  }
+  if(event && event.mode === 'B'){
+    const catId = document.getElementById('ep-category').value;
+    const category = event.categories.find(c=>c.id===catId);
+    if(!category){ toast('Kategori wajib dipilih'); return; }
+    update.categoryId = catId;
+    update.category = category.name;
+    if(category.type === 'tim'){
+      const team = document.getElementById('ep-team').value.trim();
+      if(!team){ toast('Nama team wajib diisi'); return; }
+      update.team = team;
+    } else {
+      update.team = null;
+    }
   }
   try{
     if(apiIsConfigured()){
