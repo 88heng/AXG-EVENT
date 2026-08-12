@@ -1,5 +1,3 @@
-
-<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -430,18 +428,18 @@ let participants = {
 
 let adminToken = '';
 const ADMIN_SESSION_KEY = 'axg-event-admin-session';
-const ADMIN_SESSION_MAX_AGE = 4 * 60 * 60 * 1000;
+const ADMIN_SESSION_MAX_AGE = 12 * 60 * 60 * 1000;
 
 function saveAdminSession(token){
   try{
-    sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({token, createdAt:Date.now()}));
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({token, createdAt:Date.now()}));
   }catch(error){}
 }
 function getAdminSession(){
   try{
-    const session = JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || 'null');
+    const session = JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || 'null');
     if(!session?.token || !Number.isFinite(Number(session.createdAt)) || Date.now() - Number(session.createdAt) > ADMIN_SESSION_MAX_AGE){
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(ADMIN_SESSION_KEY);
       return null;
     }
     return session;
@@ -450,7 +448,7 @@ function getAdminSession(){
   }
 }
 function clearAdminSession(){
-  try{ sessionStorage.removeItem(ADMIN_SESSION_KEY); }catch(error){}
+  try{ localStorage.removeItem(ADMIN_SESSION_KEY); }catch(error){}
 }
 
 function apiIsConfigured(){
@@ -589,7 +587,11 @@ const AxgApi = {
     });
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    if(!payload.ok) throw new Error(payload.error?.message || 'Permintaan API gagal.');
+    if(!payload.ok){
+      const error = new Error(payload.error?.message || 'Permintaan API gagal.');
+      error.code = payload.error?.code || 'API_ERROR';
+      throw error;
+    }
     return payload.data;
   },
   authenticate(){ return this.request('authenticate'); },
@@ -689,8 +691,7 @@ function doLogout(){
    Kalau errornya jaringan/timeout/Apps Script lagi lambat, sesi TETAP disimpan
    supaya user tidak perlu login ulang setiap refresh gara-gara koneksi lambat. */
 function isAuthRejectionError(error){
-  const msg = String(error?.message || '').toLowerCase();
-  return msg.includes('token') || msg.includes('unauthor') || msg.includes('401') || msg.includes('403') || msg.includes('invalid');
+  return ['UNAUTHORIZED','AUTH_FAILED','INVALID_TOKEN','FORBIDDEN'].includes(String(error?.code || '').toUpperCase());
 }
 
 async function restoreAdminSession(){
@@ -698,24 +699,25 @@ async function restoreAdminSession(){
   if(!session) return;
   adminToken = session.token;
   const banner = document.getElementById('session-banner');
+  // Jangan tahan pengguna di layar login hanya karena Apps Script sedang cold-start.
+  document.getElementById('view-login').style.display = 'none';
+  document.getElementById('view-shell').classList.add('active');
+  showPage('dashboard');
   try{
-    // Cukup 1 kali panggilan (getEvents) untuk sekaligus memvalidasi token DAN memuat data,
-    // dibanding sebelumnya authenticate() + getEvents() (2x round-trip ke Apps Script).
+    // Memuat data terbaru di belakang layar; kegagalan jaringan tidak boleh mengeluarkan admin.
     await reloadAdminData();
-    document.getElementById('view-login').style.display = 'none';
-    document.getElementById('view-shell').classList.add('active');
+    saveAdminSession(adminToken);
     showPage('dashboard');
   }catch(error){
-    if(isAuthRejectionError(error) || !apiIsConfigured()){
+    if(isAuthRejectionError(error)){
       // Token memang ditolak server -> baru hapus sesi & minta login ulang.
       adminToken = '';
       clearAdminSession();
+      doLogout();
     } else {
-      // Kemungkinan besar cuma jaringan/Apps Script lambat -> JANGAN hapus sesi.
-      // Biarkan tampil di halaman login dengan info, token tetap tersimpan untuk dicoba lagi.
-      banner.textContent = 'Gagal menyambung ke server (mungkin koneksi lambat). Token Anda masih tersimpan — coba klik MASUK lagi.';
+      // Kemungkinan besar cuma jaringan/Apps Script lambat -> sesi dan panel tetap aktif.
+      banner.textContent = 'Data terbaru belum tersambung. Sesi Anda tetap aktif; silakan refresh beberapa saat lagi.';
       banner.classList.add('show');
-      document.getElementById('pw').value = session.token;
     }
   }
 }
