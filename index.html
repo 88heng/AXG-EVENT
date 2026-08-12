@@ -823,6 +823,14 @@ function escapeHtml(str){
   return String(str||'').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
 
+/* Hanya izinkan URL gambar http(s); nilai lain (termasuk skema berbahaya seperti
+   javascript:) diganti placeholder. Tetap di-escapeHtml() untuk mencegah nilai
+   yang mengandung tanda kutip keluar dari atribut src (stored XSS). */
+function safeImageUrl(url){
+  const value = String(url||'').trim();
+  return /^https:\/\//i.test(value) ? escapeHtml(value) : PLACEHOLDER_IMG;
+}
+
 function initials(name){
   return (name||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 }
@@ -963,7 +971,7 @@ function eventCardHtml(ev){
   const { registered, capacity } = getEventCounts(ev);
   return `<div class="card reveal">
     <div class="card-media">
-      <img src="${ev.image}" alt="Foto ${escapeHtml(ev.name)}" loading="lazy">
+      <img src="${safeImageUrl(ev.image)}" alt="Foto ${escapeHtml(ev.name)}" loading="lazy">
       ${statusPillHtml(status)}
     </div>
     <div class="card-body">
@@ -1035,7 +1043,7 @@ async function renderDetail(slug){
           </div>
           <p class="category-desc">${escapeHtml(cat.rules)}</p>
           <div class="category-meta"><span>${cs.reg} / ${cat.capacity} ${cat.type==='tim'?'TIM':'PESERTA'}</span></div>
-          <div class="cap-bar ${full?'full':''}"><i style="width:${Math.min(100, cs.reg/cat.capacity*100)}%"></i></div>
+          <div class="cap-bar ${full?'full':''}"><i style="width:${cat.capacity>0?Math.min(100, cs.reg/cat.capacity*100):0}%"></i></div>
           ${cat.prizes && cat.prizes.length ? `<ul class="prize-list" style="margin-top:12px">${cat.prizes.map(p=>`<li><span class="prize-rank">${escapeHtml(p.label)}</span><span class="prize-value">${escapeHtml(p.value)}</span></li>`).join('')}</ul>` : ''}
           ${cat.results ? `<ul class="winner-list" style="margin-top:12px">${cat.results.map((r,i)=>`<li class="winner-row"><span class="winner-medal">${i+1}</span><div class="winner-info"><b>${escapeHtml(r.nama)}</b><span>${escapeHtml(r.posisi)} — ${escapeHtml(r.hadiah)}</span></div></li>`).join('')}</ul>` : ''}
           ${(!isOver && !full) ? `<button class="btn btn-outline" style="width:100%;margin-top:14px" onclick="openRegisterModal('${ev.slug}','${cat.id}')">DAFTAR ${escapeHtml(cat.name).toUpperCase()}</button>` : ''}
@@ -1046,7 +1054,7 @@ async function renderDetail(slug){
 
   app.innerHTML = `
     <div class="detail-hero">
-      <img class="detail-banner" src="${ev.image}" alt="Foto ${escapeHtml(ev.name)}">
+      <img class="detail-banner" src="${safeImageUrl(ev.image)}" alt="Foto ${escapeHtml(ev.name)}">
       <div class="detail-banner-overlay"></div>
       <div class="detail-head"><a href="#/" class="back-link">← Kembali ke Event</a></div>
     </div>
@@ -1095,7 +1103,7 @@ let modalCtx = null;
 function openRegisterModal(slug, categoryId){
   const ev = findEvent(slug);
   if(!ev) return;
-  modalCtx = { slug, categoryId: categoryId || null };
+  modalCtx = { slug, categoryId: categoryId || null, openedAt: Date.now() };
   modalBox.innerHTML = registerFormHtml(ev, categoryId);
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1161,6 +1169,10 @@ function registerFormHtml(ev, presetCategoryId){
           : `<input type="text" id="f-extra-${f.id}" placeholder="${escapeHtml(f.placeholder||'')}">`}
         <div class="error-text" id="err-extra-${f.id}"></div>
       </div>`).join('')}
+      <div style="position:absolute;left:-9999px;top:-9999px" aria-hidden="true">
+        <label for="f-website">Website</label>
+        <input type="text" id="f-website" name="website" tabindex="-1" autocomplete="off">
+      </div>
       <div class="submit-row"><button type="submit" class="btn btn-gold">DAFTAR</button></div>
     </form>`;
 }
@@ -1328,7 +1340,9 @@ async function handleSubmit(e){
         divisi,
         telegram:telegram.replace(/^@+/,''),
         team:teamName,
-        extra:extraVals
+        extra:extraVals,
+        website:document.getElementById('f-website')?.value || '',
+        formOpenedAt:modalCtx.openedAt || 0
       });
       events = (await AxgApi.getEvents()).map(normalizeEvent);
     } else {
