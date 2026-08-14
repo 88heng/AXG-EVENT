@@ -603,7 +603,7 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
 .team-chip.full i{color:var(--danger-bright)}
 .group-count{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-2);letter-spacing:.05em;text-transform:none}
 
-/* Halaman "Siapa Ikut Apa" */
+/* Halaman "Peserta " */
 .dir-note{font-size:12.5px;color:var(--muted);margin-top:10px;max-width:620px;line-height:1.6}
 .dir-card{border:1px solid var(--hairline);border-radius:14px;background:var(--subtle-fill);padding:14px 16px;margin-bottom:12px;transition:border-color .2s ease}
 .dir-card:hover{border-color:var(--accent-line)}
@@ -643,7 +643,7 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
     <nav class="desktop-nav" id="desktop-nav">
       <a href="#/" data-nav="/">HOME</a>
       <a href="#/#events" data-nav="events">EVENT</a>
-      <a href="#/direktori" data-nav="direktori">SIAPA IKUT APA</a>
+      <a href="#/direktori" data-nav="direktori">Peserta </a>
     </nav>
     <div class="header-actions">
       <div class="sync-chip" id="sync-chip" title="Status sinkronisasi data dengan Admin">
@@ -661,7 +661,7 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
   <div class="mobile-nav" id="mobile-nav">
     <a href="#/" data-nav="/">HOME</a>
     <a href="#/#events" data-nav="events">EVENT</a>
-    <a href="#/direktori" data-nav="direktori">SIAPA IKUT APA</a>
+    <a href="#/direktori" data-nav="direktori">Peserta </a>
     <button class="mobile-theme-toggle" id="mobile-theme-toggle">
       <span id="mobile-theme-label">Mode Terang</span>
     </button>
@@ -1072,7 +1072,7 @@ function sortedEvents(list){
 }
 
 /* =====================================================================
-   DIREKTORI PESERTA — "siapa ikut apa"
+   DIREKTORI PESERTA — "Peserta "
    Menggabungkan seluruh pendaftar dari semua event, dikelompokkan per
    orang (nama + divisi), lengkap dengan daftar lomba yang diikuti.
    ===================================================================== */
@@ -1201,7 +1201,7 @@ async function renderHome(){
       <p class="fade-up" style="animation-delay:.16s">Pilih lomba atau kegiatan yang ingin kamu ikuti. Bebas ikut berapa pun.</p>
       <div class="hero-actions fade-up" style="animation-delay:.24s">
         <a href="#/#events" class="btn btn-gold">LIHAT EVENT</a>
-        <a href="#/direktori" class="btn btn-outline">SIAPA IKUT APA</a>
+        <a href="#/direktori" class="btn btn-outline">Peserta </a>
       </div>
     </section>
     <section class="section" id="events">
@@ -1345,7 +1345,7 @@ async function renderDetail(slug){
               : isFull ? `<button class="btn btn-disabled" style="width:100%" disabled>SLOT PENUH</button>`
               : `<button class="btn btn-gold" style="width:100%" onclick="openRegisterModal('${ev.slug}')">DAFTAR SEKARANG</button>`}
             <a href="#/peserta/${ev.slug}" class="btn btn-outline" style="width:100%;margin-top:10px">LIHAT DAFTAR PESERTA</a>
-            <a href="#/direktori" class="btn btn-ghost-link" style="width:100%;margin-top:10px">SIAPA IKUT APA →</a>
+            <a href="#/direktori" class="btn btn-ghost-link" style="width:100%;margin-top:10px">Peserta  →</a>
             <p class="side-note">Kamu bebas mendaftar di lomba lain juga — tidak ada batasan jumlah event yang diikuti.</p>
           </div>
         </div>
@@ -1646,7 +1646,7 @@ function renderSuccess(){
     <div class="success-actions">
       <a href="#/" class="btn btn-gold">IKUT LOMBA LAIN</a>
       <a href="#/peserta/${r.eventSlug}" class="btn btn-outline">LIHAT DAFTAR PESERTA</a>
-      <a href="#/direktori" class="btn btn-outline">SIAPA IKUT APA</a>
+      <a href="#/direktori" class="btn btn-outline">Peserta </a>
     </div>
     <p class="save-note">Simpan atau screenshot nomor pendaftaran ini.</p>
   </div>`;
@@ -1674,7 +1674,7 @@ async function renderParticipants(slug){
     <div class="filters">
       <input type="text" id="pf-search" placeholder="Cari nama peserta...">
       <select id="pf-divisi"><option value="">Semua Divisi</option>${divisiList.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
-      <a href="#/direktori" class="btn btn-outline" style="flex:0 0 auto">SIAPA IKUT APA</a>
+      <a href="#/direktori" class="btn btn-outline" style="flex:0 0 auto">Peserta </a>
     </div>
     <div class="participants-body" id="participants-list"></div>`;
 
@@ -1717,7 +1717,7 @@ function participantRowHtml(p){
 }
 
 /* =====================================================================
-   HALAMAN "SIAPA IKUT APA"
+   HALAMAN "Peserta "
    Menjawab kebutuhan utama: pengunjung bisa melihat siapa saja yang
    sudah mendaftar dan lomba apa saja yang diikuti tiap orang.
    ===================================================================== */
@@ -1733,7 +1733,7 @@ async function renderDirectory(){
   app.innerHTML = `
     <div class="participants-head">
       <a href="#/" class="back-link" style="padding-top:0">← Kembali ke Daftar Event</a>
-      <h1 style="margin-top:14px">Siapa Ikut Apa</h1>
+      <h1 style="margin-top:14px">Peserta </h1>
       <div class="participants-count">${directory.length} ORANG · ${totalSlot} PENDAFTARAN · ${eventList.length} EVENT</div>
       <p class="dir-note">Setiap orang bebas mengikuti berapa pun lomba. Daftar di bawah menampilkan semua pendaftar beserta lomba yang diikutinya.</p>
     </div>
