@@ -241,7 +241,10 @@ nav.desktop-nav a.active::after{content:"";position:absolute;left:0;right:0;bott
 .section-head p{color:var(--muted);margin-top:10px;font-size:14px}
 
 /* ============ EVENT GRID ============ */
-.event-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:var(--container);margin:0 auto}
+/* minmax dengan batas atas 380px: kalau event hanya 1-2, kartunya tidak
+   melar selebar layar (tampak tidak proporsional di desktop) melainkan
+   tetap rapi di tengah. */
+.event-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,380px));gap:24px;max-width:var(--container);margin:0 auto;justify-content:center}
 .card{
   background:var(--surface);border:1px solid var(--accent-line);border-radius:var(--radius);
   overflow:hidden;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease;
@@ -472,6 +475,165 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
     line-height:1.5;
   }
 }
+
+/* =====================================================================
+   NOTIFIKASI (TOAST) — muncul saat pendaftaran berhasil / gagal dan saat
+   halaman menerima data terbaru dari Admin.
+   ===================================================================== */
+.toast-stack{position:fixed;right:20px;bottom:20px;z-index:300;display:flex;flex-direction:column;gap:10px;align-items:flex-end;pointer-events:none;max-width:min(360px,calc(100vw - 32px))}
+.toast{
+  pointer-events:auto;position:relative;overflow:hidden;width:100%;
+  background:var(--surface-2);border:1px solid var(--hairline);border-left:3px solid var(--accent);
+  border-radius:12px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;
+  box-shadow:0 14px 40px rgba(0,0,0,.35);
+  transform:translateX(24px) scale(.96);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.3,1),opacity .28s ease;
+}
+.toast.show{transform:translateX(0) scale(1);opacity:1}
+.toast.leaving{transform:translateX(24px) scale(.96);opacity:0}
+.toast-ic{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0;background:var(--accent-soft);color:var(--accent)}
+.toast-title{font-family:var(--font-display);font-weight:700;font-size:12.5px;letter-spacing:.02em}
+.toast-msg{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:2px}
+.toast-x{background:none;border:none;color:var(--muted-2);font-size:13px;line-height:1;padding:2px 3px;border-radius:5px;flex-shrink:0}
+.toast-x:hover{color:var(--text)}
+.toast-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--accent);transform-origin:left center}
+.toast-success{border-left-color:var(--status-open-dot)}
+.toast-success .toast-ic{background:var(--status-open-bg);color:var(--status-open-text)}
+.toast-success .toast-bar{background:var(--status-open-dot)}
+.toast-error{border-left-color:var(--danger)}
+.toast-error .toast-ic{background:var(--danger-soft);color:var(--danger-bright)}
+.toast-error .toast-bar{background:var(--danger)}
+@keyframes toastBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* =====================================================================
+   OVERLAY LOADING — tampil saat menyimpan pendaftaran ke server.
+   ===================================================================== */
+.loader-overlay{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .2s ease}
+.loader-overlay.show{opacity:1;pointer-events:auto}
+.loader-card{background:var(--surface-2);border:1px solid var(--accent-line);border-radius:16px;padding:24px 28px;display:flex;align-items:center;gap:15px;min-width:240px;max-width:calc(100vw - 40px);box-shadow:0 24px 60px rgba(0,0,0,.5);transform:translateY(10px) scale(.97);transition:transform .25s cubic-bezier(.2,.8,.3,1)}
+.loader-overlay.show .loader-card{transform:translateY(0) scale(1)}
+.loader-ring{width:30px;height:30px;border-radius:50%;flex-shrink:0;border:3px solid var(--accent-soft);border-top-color:var(--accent);animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{font-family:var(--font-display);font-weight:700;font-size:13.5px;letter-spacing:.02em}
+.loader-sub{font-size:11.5px;color:var(--muted-2);margin-top:3px}
+.btn.is-busy{position:relative;color:transparent !important;pointer-events:none}
+.btn.is-busy::after{content:"";position:absolute;top:50%;left:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:50%;border:2px solid rgba(0,0,0,.25);border-top-color:var(--on-accent);animation:spin .7s linear infinite}
+
+/* =====================================================================
+   INDIKATOR SINKRONISASI DI HEADER
+   ===================================================================== */
+.sync-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:100px;border:1px solid var(--hairline);background:var(--surface);font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.sync-chip .sdot{width:6px;height:6px;border-radius:50%;background:var(--status-open-dot);flex-shrink:0;box-shadow:0 0 6px var(--status-open-dot)}
+.sync-chip.syncing .sdot{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1s ease infinite}
+.sync-chip.offline .sdot{background:var(--muted-2);box-shadow:none}
+@keyframes pulse{50%{opacity:.3}}
+.sync-refresh{background:none;border:none;color:var(--muted-2);font-size:13px;line-height:1;padding:0 0 0 2px;border-radius:5px}
+.sync-refresh:hover{color:var(--accent)}
+.sync-refresh.spinning{animation:spin .8s linear infinite;display:inline-block}
+@media (max-width:900px){.sync-chip .sync-label{display:none}}
+@media (max-width:760px){
+  .sync-chip{padding:7px 9px}
+  .toast-stack{left:12px;right:12px;bottom:12px;max-width:none;align-items:stretch}
+}
+
+/* =====================================================================
+   PENYEMPURNAAN RESPONSIF
+   ===================================================================== */
+@media (max-width:760px){
+  .hero{padding:64px 18px 56px}
+  .section{padding:52px 18px}
+  .section-head{margin-bottom:30px}
+  .event-grid{grid-template-columns:1fr;gap:18px}
+  .detail-body{padding:26px 18px 64px;gap:22px}
+  .panel{padding:19px 17px}
+  .panel + .panel{margin-top:16px}
+  .filters{gap:9px}
+  .filters input,.filters select{min-width:0;flex:1 1 100%}
+  .p-row{flex-wrap:wrap;gap:9px 11px;padding:12px 13px}
+  .p-name{flex:1 1 auto;min-width:0;word-break:break-word}
+  .p-divisi{order:3;margin-left:44px}
+  .success-wrap{margin:34px auto 60px}
+  .reg-no{font-size:25px;word-break:break-all}
+  .ticket-detail div{gap:14px}
+  .ticket-detail span:last-child{word-break:break-word}
+  .category-top{flex-direction:column;align-items:flex-start}
+  .modal-box{padding:22px 18px 26px;max-height:92vh}
+  footer{padding:28px 18px}
+}
+@media (max-width:400px){
+  .brand span{font-size:13.5px}
+  .btn{padding:13px 20px;font-size:12.5px}
+}
+/* =====================================================================
+   KOMPONEN v2 — TANPA KATEGORI
+   ===================================================================== */
+.hero-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.hero-actions .btn{margin-top:0}
+
+/* Label tipe peserta pada kartu & judul detail */
+.type-badge{
+  position:absolute;right:12px;bottom:12px;font-family:var(--font-mono);font-size:9.5px;font-weight:600;
+  letter-spacing:.07em;padding:5px 9px;border-radius:100px;background:rgba(0,0,0,.55);color:var(--accent-bright);
+  border:1px solid var(--accent-line);backdrop-filter:blur(6px)
+}
+[data-theme="light"] .type-badge{background:rgba(255,255,255,.82);color:var(--accent)}
+.type-badge-static{position:static;display:inline-flex;margin-left:8px;background:var(--accent-soft);color:var(--accent);backdrop-filter:none}
+
+/* Pengelompokan kartu berdasarkan "Nama Acara" */
+.event-group{max-width:var(--container);margin:0 auto 46px}
+.event-group:last-child{margin-bottom:0}
+.event-group-head{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.event-group-title{font-family:var(--font-display);font-weight:800;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.event-group-count{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-2);letter-spacing:.06em}
+.event-group-head::after{content:"";flex:1;height:1px;background:var(--accent-line)}
+
+.detail-group{font-size:12.5px;color:var(--muted);margin-top:8px}
+.detail-group b{color:var(--accent)}
+.side-note{font-size:11.5px;color:var(--muted-2);line-height:1.55;margin-top:14px}
+.btn-ghost-link{color:var(--muted);font-size:12px;border:1px dashed var(--hairline)}
+.btn-ghost-link:hover{color:var(--accent);border-color:var(--accent-line)}
+
+/* Daftar tim yang sudah terbentuk */
+.team-chip-list{display:flex;flex-wrap:wrap;gap:9px}
+.team-chip{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:100px;
+  border:1px solid var(--accent-line);background:var(--accent-soft);font-size:12.5px;font-weight:600
+}
+.team-chip i{font-family:var(--font-mono);font-style:normal;font-size:11px;color:var(--accent)}
+.team-chip.full{border-color:var(--danger-line);background:var(--danger-soft)}
+.team-chip.full i{color:var(--danger-bright)}
+.group-count{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-2);letter-spacing:.05em;text-transform:none}
+
+/* Halaman "Siapa Ikut Apa" */
+.dir-note{font-size:12.5px;color:var(--muted);margin-top:10px;max-width:620px;line-height:1.6}
+.dir-card{border:1px solid var(--hairline);border-radius:14px;background:var(--subtle-fill);padding:14px 16px;margin-bottom:12px;transition:border-color .2s ease}
+.dir-card:hover{border-color:var(--accent-line)}
+.dir-person{display:flex;align-items:center;gap:12px}
+.dir-identity{flex:1;min-width:0}
+.dir-identity b{display:block;font-size:14px;line-height:1.3}
+.dir-identity span{font-size:11.5px;color:var(--muted)}
+.dir-total{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent-line);background:var(--accent-soft);padding:5px 10px;border-radius:100px;white-space:nowrap}
+.dir-events{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-left:44px}
+.dir-event-chip{
+  display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:100px;
+  border:1px solid var(--hairline);background:var(--surface);font-size:12px;transition:.18s ease
+}
+.dir-event-chip:hover{border-color:var(--accent);color:var(--accent)}
+.dir-event-chip i{font-family:var(--font-mono);font-style:normal;font-size:10px;color:var(--muted-2)}
+.dir-event-chip.done{opacity:.55}
+@media (max-width:760px){
+  .dir-events{padding-left:0;margin-top:11px}
+  .dir-total{font-size:9.5px;padding:4px 8px}
+  .event-group{margin-bottom:34px}
+  .filters .btn{width:100%}
+}
+/* Banner detail dibatasi tingginya agar tidak memakan seluruh layar desktop,
+   dan tombol kembali dipindah ke dalam blok judul supaya tidak tertimpa. */
+.detail-banner{max-height:380px}
+.back-link-inline{padding:0 0 12px;display:flex;width:fit-content}
+.detail-title-block > .status-pill{margin-left:0}
+@media (max-width:760px){
+  .detail-banner{max-height:none}
+}
 </style>
 </head>
 <body>
@@ -481,8 +643,14 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
     <nav class="desktop-nav" id="desktop-nav">
       <a href="#/" data-nav="/">HOME</a>
       <a href="#/#events" data-nav="events">EVENT</a>
+      <a href="#/direktori" data-nav="direktori">SIAPA IKUT APA</a>
     </nav>
     <div class="header-actions">
+      <div class="sync-chip" id="sync-chip" title="Status sinkronisasi data dengan Admin">
+        <span class="sdot"></span>
+        <span class="sync-label" id="sync-label">MEMUAT…</span>
+        <button class="sync-refresh" id="sync-refresh" onclick="manualRefresh()" title="Muat ulang data sekarang" aria-label="Muat ulang data">⟳</button>
+      </div>
       <button class="theme-toggle" id="theme-toggle" aria-label="Ganti mode tampilan" title="Ganti mode terang/gelap">
         <span class="theme-icon theme-icon-dark">🌙</span>
         <span class="theme-icon theme-icon-light">☀️</span>
@@ -493,6 +661,7 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
   <div class="mobile-nav" id="mobile-nav">
     <a href="#/" data-nav="/">HOME</a>
     <a href="#/#events" data-nav="events">EVENT</a>
+    <a href="#/direktori" data-nav="direktori">SIAPA IKUT APA</a>
     <button class="mobile-theme-toggle" id="mobile-theme-toggle">
       <span id="mobile-theme-label">Mode Terang</span>
     </button>
@@ -511,133 +680,39 @@ footer p{font-size:11.5px;color:var(--muted-2);margin-top:6px}
   <div class="modal-box" id="modal-box"></div>
 </div>
 
+<!-- Overlay loading global (tampil saat menyimpan pendaftaran) -->
+<div class="loader-overlay" id="loader-overlay" role="status" aria-live="polite" aria-hidden="true">
+  <div class="loader-card">
+    <div class="loader-ring"></div>
+    <div>
+      <div class="loader-text" id="loader-text">MEMPROSES…</div>
+      <div class="loader-sub" id="loader-sub">Mohon tunggu sebentar</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tempat notifikasi bertumpuk -->
+<div class="toast-stack" id="toast-stack" role="status" aria-live="polite"></div>
+
 <script>
 /* =====================================================================
-   AXG EVENT — CANONICAL DATA + GOOGLE APPS SCRIPT
-   Isi API_URL dengan URL deployment /exec. Data di bawah dipakai hanya
-   sebagai fallback preview selama API belum dikonfigurasi.
+   AXG EVENT — HALAMAN PUBLIK (v2, tanpa kategori)
+   Satu lomba = satu kartu event. Setiap event bertipe Individu atau Tim.
+   Isi API_URL dengan URL deployment /exec. Data di bawah hanya dipakai
+   sebagai preview selama API belum dikonfigurasi.
    ===================================================================== */
 const PLACEHOLDER_IMG = "https://i.postimg.cc/4y4sYvCQ/event-foto-axg.jpg";
 const AXG_CONFIG = Object.freeze({
   API_URL: 'https://script.google.com/macros/s/AKfycbxyfojAmRcT8K1l53QLZKoQ3ptVYk0OneEPtyA3zXgNbBcQFcvCJSmgb6X4ZP2luNj9lg/exec',
-  ENABLE_MOCK_FALLBACK: false
+  ENABLE_MOCK_FALLBACK: true
 });
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 
-let events = [
-  {
-    id:'1',
-    slug:'hut-kemerdekaan-ri-ke-81-axg',
-    name:'HUT Kemerdekaan RI KE-81 AXG',
-    flagEmoji:'🇮🇩',
-    tagline:'Rangkaian lomba kemerdekaan untuk seluruh karyawan AXG.',
-    description:'Rangkaian lomba memperingati Hari Kemerdekaan Republik Indonesia. Terbuka untuk seluruh karyawan AXG — silakan pilih kategori individu atau bentuk tim bersama pasangan sendiri.',
-    date:'2026-08-17',
-    location:'Mess 96 – Area Dapur Lantai 1',
-    image:PLACEHOLDER_IMG,
-    mode:'B',
-    active:true,
-    categories:[
-      {
-        id:'ludo', name:'Ludo Team', type:'tim', capacity:10, teamSize:2,
-        rules:'Satu tim terdiri dari 2 orang. Peserta bebas memilih pasangan atau nama tim sendiri.',
-        prizes:[], results:null,
-        participants:[
-          {id:'AXG-0003',registrationNumber:'AXG-0003',no:1,name:'Sinta Marlina',divisi:'Finance',telegram:'@sintam',team:'Team Smit'},
-          {id:'AXG-0004',registrationNumber:'AXG-0004',no:2,name:'Rudi Hartono',divisi:'Marketing',telegram:'@rudih',team:'Team Smit'}
-        ]
-      },
-      {
-        id:'congklak', name:'Congklak Individu', type:'individu', capacity:20,
-        rules:'Peserta bermain secara individu.', prizes:[], results:null,
-        participants:[
-          {id:'AXG-0001',registrationNumber:'AXG-0001',no:1,name:'Budi Santoso',divisi:'IT',telegram:'@budisan'},
-          {id:'AXG-0002',registrationNumber:'AXG-0002',no:2,name:'Andi Wijaya',divisi:'HRD',telegram:'@andiw'}
-        ]
-      },
-      {
-        id:'catur', name:'Catur Individu', type:'individu', capacity:16,
-        rules:'Peserta bermain secara individu.', prizes:[], results:null,
-        participants:[
-          {id:'AXG-0005',registrationNumber:'AXG-0005',no:1,name:'Dewi Anggraini',divisi:'IT',telegram:'@dewia'}
-        ]
-      },
-      {
-        id:'gaple', name:'Gaple Team', type:'tim', capacity:8, teamSize:2,
-        rules:'Satu tim terdiri dari 2 orang. Peserta bebas memilih pasangan atau nama tim sendiri.',
-        prizes:[], results:null,
-        participants:[
-          {id:'AXG-0006',registrationNumber:'AXG-0006',no:1,name:'Yusuf Pratama',divisi:'GA',telegram:'@yusufp',team:'Team Mosiongto'},
-          {id:'AXG-0007',registrationNumber:'AXG-0007',no:2,name:'Nadia Putri',divisi:'HRD',telegram:'@nadiap',team:'Team Mosiongto'}
-        ]
-      },
-      {id:'poker', name:'Poker Individu', type:'individu', capacity:12, rules:'Peserta bermain secara individu.', prizes:[], results:null, participants:[]},
-      {id:'lomba-makan', name:'Lomba Makan', type:'individu', capacity:20, rules:'Peserta bermain secara individu.', prizes:[], results:null, participants:[]}
-    ]
-  },
-  {
-    slug:'makan-bersama',
-    name:'Makan Bersama AXG',
-    flagEmoji:'🍽️',
-    tagline:'Makan siang bersama seluruh karyawan sebagai wujud kebersamaan.',
-    description:'Acara makan siang bersama seluruh karyawan AXG. Menu prasmanan disediakan panitia. Silakan daftar agar panitia bisa menyiapkan porsi dengan tepat.',
-    date:'28 Agustus 2026',
-    location:'Kantin Utama – Lantai Dasar',
-    image:PLACEHOLDER_IMG,
-    mode:'A',
-    active:true,
-    capacity:100,
-    rules:'Peserta wajib hadir tepat waktu pukul 12.00 WIB. Harap membawa alat makan pribadi jika memungkinkan untuk mengurangi sampah plastik.',
-    prizes:[],
-    results:null,
-    extraFields:[{id:'catatan',label:'Catatan (opsional)',type:'text',required:false,placeholder:'Contoh: alergi makanan tertentu'}],
-    participants:[
-      {no:1,name:'Budi Santoso',divisi:'IT',telegram:'@budisan',extra:{catatan:''}},
-      {no:2,name:'Yusuf Ardiansyah',divisi:'Legal',telegram:'@yusufa',extra:{catatan:''}},
-      {no:3,name:'Nadia Putri',divisi:'HRD',telegram:'@nadiap',extra:{catatan:'Alergi udang'}},
-    ]
-  },
-  {
-    slug:'nonton-bareng',
-    name:'Nonton Bareng AXG',
-    flagEmoji:'🎬',
-    tagline:'Nobar film bareng seluruh tim, kapasitas terbatas!',
-    description:'Nonton bareng film pilihan karyawan di ruang serbaguna kantor. Snack dan minuman disediakan panitia.',
-    date:'22 Agustus 2026',
-    location:'Ruang Serbaguna – Lantai 3',
-    image:PLACEHOLDER_IMG,
-    mode:'A',
-    active:true,
-    capacity:30,
-    rules:'Kursi terbatas, pendaftaran berlaku first-come-first-served. Harap hadir 15 menit sebelum acara dimulai.',
-    prizes:[],
-    results:null,
-    extraFields:[],
-    participants:Array.from({length:30}).map((_,i)=>({no:i+1,name:'Peserta '+(i+1),divisi:['IT','HRD','Finance','Marketing'][i%4],telegram:'@peserta'+(i+1),extra:{}}))
-  },
-  {
-    slug:'turnamen-futsal-2025',
-    name:'Turnamen Futsal AXG 2025',
-    flagEmoji:'⚽',
-    tagline:'Turnamen futsal antar divisi tahun lalu.',
-    description:'Turnamen futsal tahunan antar divisi AXG. Acara telah selesai — berikut hasil dan pemenangnya.',
-    date:'12 Oktober 2025',
-    location:'GOR Futsal Cempaka',
-    image:PLACEHOLDER_IMG,
-    mode:'B',
-    active:false,
-    categories:[
-      {
-        id:'futsal-2025', name:'Futsal', type:'tim', capacity:8, teamSize:5,
-        rules:'Sistem gugur, satu tim terdiri dari 5 pemain.',
-        prizes:[{label:'Juara 1',value:'Rp 800.000'},{label:'Juara 2',value:'Rp 500.000'},{label:'Juara 3',value:'Rp 250.000'}],
-        results:[{posisi:'Juara 1',nama:'Team Garuda (IT)',hadiah:'Rp 800.000'},{posisi:'Juara 2',nama:'Team Elang (Marketing)',hadiah:'Rp 500.000'},{posisi:'Juara 3',nama:'Team Rajawali (Finance)',hadiah:'Rp 250.000'}],
-        participants:[]
-      }
-    ]
-  }
-];
+/* Daftar event dikosongkan: seluruh data diambil langsung dari Google
+   Apps Script. Halaman akan menampilkan status "Belum Ada Event" selama
+   Admin belum membuat lomba pertama. */
+let events = [];
 
 let lastRegistration = null;
 
@@ -645,14 +720,18 @@ function apiIsConfigured(){
   return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?|$)/.test(AXG_CONFIG.API_URL);
 }
 
+/* =====================================================================
+   NORMALISASI DATA
+   ===================================================================== */
 function normalizeText(value){
   return String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
 }
-
 function slugify(value){
   return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 }
+function normalizePrefix(value){ return String(value||'AXG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'AXG'; }
+function fmtRegNo(prefix,n){ return `${normalizePrefix(prefix)}-${String(n).padStart(4,'0')}`; }
 
 function normalizePrizes(prizes){
   if(!Array.isArray(prizes)) return [];
@@ -662,71 +741,65 @@ function normalizePrizes(prizes){
   ).filter(item=>item.value);
 }
 
-function normalizeResults(results, prizes){
+function normalizeResults(results){
   if(!results) return null;
-  if(Array.isArray(results)) return results;
-  const source = results._ || results;
-  const list = [1,2,3].map((position,index)=>{
-    const nama = source[position] || source[String(position)] || '';
-    if(!nama) return null;
-    return { posisi:`Juara ${position}`, nama, hadiah:prizes[index]?.value || '' };
-  }).filter(Boolean);
-  return list.length ? list : null;
+  let list = results;
+  if(!Array.isArray(results)){
+    const source = results._ || results;
+    list = [1,2,3].map(position=>{
+      const nama = source[position] || source[String(position)] || '';
+      return nama ? {posisi:`Juara ${position}`, nama, hadiah:''} : null;
+    }).filter(Boolean);
+  }
+  const cleaned = list.map((item,index)=>({
+    posisi:item?.posisi || `Juara ${index+1}`,
+    nama:item?.nama || '',
+    hadiah:item?.hadiah || ''
+  })).filter(item=>item.nama);
+  return cleaned.length ? cleaned : null;
 }
 
 function normalizeParticipant(participant, index){
   return {
-    id: participant.id || participant.registrationNumber || uid(),
-    registrationNumber: participant.registrationNumber || (String(participant.id||'').startsWith('AXG-') ? participant.id : ''),
+    id: participant.id || uid(),
     no: Number(participant.no || index + 1),
     name: participant.name || '',
     divisi: participant.divisi || participant.division || '',
-    telegram: String(participant.telegram || '').replace(/^@+/,''),
     team: participant.team || '',
-    extra: participant.extra || {}
-  };
-}
-
-function normalizeCategory(category, eventId, index){
-  const prizes = normalizePrizes(category.prizes);
-  return {
-    id: category.id || `${eventId}-category-${index+1}`,
-    name: category.name || `Kategori ${index+1}`,
-    type: category.type === 'tim' ? 'tim' : 'individu',
-    capacity: Number(category.capacity || 0),
-    teamSize: category.teamSize === 'bebas' || category.teamSize === 'free' || !category.teamSize ? 'bebas' : Number(category.teamSize),
-    rules: category.rules || '',
-    prizes,
-    results: normalizeResults(category.results, prizes),
-    participants: (category.participants || []).map(normalizeParticipant)
+    createdAt: participant.createdAt || ''
   };
 }
 
 function normalizeEvent(event, index){
   const id = String(event.id || event.slug || `event-${index+1}`);
-  const prizes = normalizePrizes(event.prizes);
-  const mode = String(event.mode || 'A').toUpperCase() === 'B' ? 'B' : 'A';
+  const type = String(event.type || '').toLowerCase() === 'tim' ? 'tim' : 'individu';
+  const teamSize = event.teamSize === 'bebas' || event.teamSize === 'free' || !event.teamSize ? 'bebas' : Number(event.teamSize);
+  const showPrizes = event.showPrizes === undefined ? true : event.showPrizes === true || String(event.showPrizes).toLowerCase() === 'true';
+  const showResults = event.showResults === undefined ? true : event.showResults === true || String(event.showResults).toLowerCase() === 'true';
   return {
-    ...event,
     id,
     slug: event.slug || slugify(event.name) || id,
     name: event.name || '',
     flagEmoji: event.flagEmoji || '',
-    tagline: event.tagline || event.description || event.desc || '',
+    tagline: event.tagline || event.description || '',
     description: event.description || event.desc || '',
     date: event.date || '',
     location: event.location || '',
-    image: event.image || event.photo || PLACEHOLDER_IMG,
-    mode,
+    image: event.image || '',
+    type,
+    teamSize,
     prefix: normalizePrefix(event.prefix),
     active: event.active === true || String(event.active).toLowerCase() === 'true',
     capacity: Number(event.capacity || 0),
     rules: event.rules || '',
-    prizes,
-    results: normalizeResults(event.results, prizes),
+    prizes: showPrizes ? normalizePrizes(event.prizes) : [],
+    showPrizes,
+    results: showResults ? normalizeResults(event.results) : null,
+    showResults,
     extraFields: Array.isArray(event.extraFields) ? event.extraFields : [],
-    participants: mode === 'A' ? (event.participants || []).map(normalizeParticipant) : [],
-    categories: mode === 'B' ? (event.categories || []).map((category,catIndex)=>normalizeCategory(category,id,catIndex)) : []
+    eventGroup: event.eventGroup || '',
+    sortOrder: Number(event.sortOrder || 0),
+    participants: (event.participants || []).map(normalizeParticipant)
   };
 }
 
@@ -753,6 +826,7 @@ const AxgApi = {
     return payload.data;
   },
   getEvents(){ return this.request('getEvents', {scope:'public'}); },
+  getVersion(){ return this.request('getVersion'); },
   saveParticipant(data){ return this.request('saveParticipant', {data}, 'POST'); }
 };
 
@@ -772,27 +846,182 @@ async function loadEvents(){
 }
 
 /* =====================================================================
-   HELPERS
+   LAPISAN UX: NOTIFIKASI + OVERLAY LOADING
    ===================================================================== */
-function normalizePrefix(value){ return String(value||'AXG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'AXG'; }
-function fmtRegNo(prefix,n){ return `${normalizePrefix(prefix)}-${String(n).padStart(4,'0')}`; }
+const TOAST_ICONS = { success:'✓', error:'!', info:'i' };
+const TOAST_TITLES = { success:'BERHASIL', error:'GAGAL', info:'INFORMASI' };
 
-function getEventCounts(ev){
-  if(ev.mode === 'A'){
-    return { registered: ev.participants.length, capacity: ev.capacity };
+function toast(message, variant, title){
+  const type = ['success','error','info'].includes(variant) ? variant : 'success';
+  const stack = document.getElementById('toast-stack');
+  if(!stack) return;
+  while(stack.children.length >= 3) stack.firstElementChild.remove();
+  const life = type === 'error' ? 5200 : 3400;
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `
+    <span class="toast-ic">${TOAST_ICONS[type]}</span>
+    <div style="flex:1;min-width:0">
+      <div class="toast-title">${escapeHtml(title || TOAST_TITLES[type])}</div>
+      <div class="toast-msg">${escapeHtml(message)}</div>
+    </div>
+    <button class="toast-x" aria-label="Tutup notifikasi">✕</button>
+    <span class="toast-bar" style="animation:toastBar ${life}ms linear forwards"></span>`;
+  stack.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  let timer = setTimeout(dismiss, life);
+  function dismiss(){
+    clearTimeout(timer);
+    el.classList.add('leaving');
+    setTimeout(()=>el.remove(), 300);
   }
-  let registered = 0, capacity = 0;
-  ev.categories.forEach(c=>{
-    capacity += c.capacity;
-    registered += c.type === 'individu' ? c.participants.length : countTeams(c);
-  });
-  return { registered, capacity };
+  el.querySelector('.toast-x').onclick = dismiss;
+}
+const toastSuccess = (message,title)=>toast(message,'success',title);
+const toastError   = (message,title)=>toast(message,'error',title);
+const toastInfo    = (message,title)=>toast(message,'info',title);
+
+let loaderDepth = 0;
+function showLoader(text, sub){
+  loaderDepth += 1;
+  const overlayEl = document.getElementById('loader-overlay');
+  document.getElementById('loader-text').textContent = text || 'MEMPROSES…';
+  document.getElementById('loader-sub').textContent = sub || 'Mohon tunggu sebentar';
+  overlayEl.classList.add('show');
+  overlayEl.setAttribute('aria-hidden','false');
+}
+function hideLoader(force){
+  loaderDepth = force ? 0 : Math.max(0, loaderDepth - 1);
+  if(loaderDepth === 0){
+    const overlayEl = document.getElementById('loader-overlay');
+    overlayEl.classList.remove('show');
+    overlayEl.setAttribute('aria-hidden','true');
+  }
+}
+function setBusy(element, busy){
+  if(!element) return;
+  element.classList.toggle('is-busy', !!busy);
+  if('disabled' in element) element.disabled = !!busy;
 }
 
-function eventCountUnit(ev){ return ev.mode === 'B' ? 'SLOT' : 'PESERTA'; }
+/* =====================================================================
+   SINKRONISASI OTOMATIS DENGAN ADMIN
+   Setiap 30 detik (dan ketika tab kembali aktif) halaman menanyakan
+   nomor versi data. Data lengkap baru ditarik ulang bila memang berubah.
+   ===================================================================== */
+const SYNC_INTERVAL_MS = 30000;
+let syncTimer = null, syncTicker = null;
+let lastSyncAt = 0, knownDataVersion = null, syncInFlight = false;
 
-function countTeams(cat){
-  return new Set(cat.participants.map(p=>normalizeText(p.team)).filter(Boolean)).size;
+function relativeTime(timestamp){
+  if(!timestamp) return 'BELUM';
+  const seconds = Math.round((Date.now() - timestamp) / 1000);
+  if(seconds < 10) return 'BARU SAJA';
+  if(seconds < 60) return `${seconds} DTK LALU`;
+  const minutes = Math.round(seconds / 60);
+  if(minutes < 60) return `${minutes} MNT LALU`;
+  return `${Math.round(minutes / 60)} JAM LALU`;
+}
+function setSyncState(state, label){
+  const chip = document.getElementById('sync-chip');
+  if(!chip) return;
+  chip.classList.toggle('syncing', state === 'syncing');
+  chip.classList.toggle('offline', state === 'offline');
+  document.getElementById('sync-label').textContent = label;
+  document.getElementById('sync-refresh').classList.toggle('spinning', state === 'syncing');
+}
+function paintSyncLabel(){
+  if(syncInFlight) return;
+  if(!apiIsConfigured()){ setSyncState('offline','PREVIEW'); return; }
+  setSyncState('ok', relativeTime(lastSyncAt));
+}
+function markSynced(){ lastSyncAt = Date.now(); paintSyncLabel(); }
+
+async function syncNow(options){
+  const { force = false, notify = false } = options || {};
+  if(!apiIsConfigured() || syncInFlight) return false;
+  syncInFlight = true;
+  setSyncState('syncing','SINKRON…');
+  try{
+    let changed = force;
+    if(!force){
+      const info = await AxgApi.getVersion();
+      const version = Number(info?.version ?? -1);
+      if(knownDataVersion === null) knownDataVersion = version;
+      else if(version !== knownDataVersion){ knownDataVersion = version; changed = true; }
+    }
+    if(changed){
+      events = (await AxgApi.getEvents()).map(normalizeEvent);
+      try{ knownDataVersion = Number((await AxgApi.getVersion())?.version ?? knownDataVersion); }
+      catch(error){ knownDataVersion = null; }
+      await softRerender();
+      if(notify) toastInfo('Data event terbaru sudah dimuat.','TERSINKRON');
+    }
+    syncInFlight = false;
+    markSynced();
+    return changed;
+  }catch(error){
+    syncInFlight = false;
+    setSyncState('offline','TERTUNDA');
+    console.warn('Sinkronisasi tertunda:', error);
+    return false;
+  }
+}
+
+/* Render ulang halaman aktif tanpa mengganggu modal / halaman sukses,
+   dan tetap mempertahankan isian pencarian & filter. */
+async function softRerender(){
+  if(overlay.classList.contains('open')) return;
+  const { parts } = parseHash();
+  if(parts[0] === 'sukses') return;
+  const scrollY = window.scrollY;
+  const keep = {};
+  ['pf-search','pf-divisi','dir-search','dir-divisi','dir-event'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) keep[id] = el.value;
+  });
+  await route({ instant:true });
+  Object.entries(keep).forEach(([id,value])=>{
+    const el = document.getElementById(id);
+    if(el){ el.value = value; el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input')); }
+  });
+  window.scrollTo({ top:scrollY });
+}
+
+async function manualRefresh(){
+  if(!apiIsConfigured()){ toastInfo('Halaman berjalan dalam mode preview.'); return; }
+  const changed = await syncNow({ force:true });
+  toastSuccess(changed ? 'Data event terbaru sudah dimuat.' : 'Data sudah yang paling baru.','TERSINKRON');
+}
+
+function startAutoSync(){
+  if(syncTimer) clearInterval(syncTimer);
+  if(syncTicker) clearInterval(syncTicker);
+  syncTicker = setInterval(paintSyncLabel, 10000);
+  if(!apiIsConfigured()){ paintSyncLabel(); return; }
+  syncTimer = setInterval(()=>{ if(!document.hidden) syncNow(); }, SYNC_INTERVAL_MS);
+  markSynced();
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden && Date.now() - lastSyncAt > 8000) syncNow();
+});
+window.addEventListener('focus', ()=>{
+  if(Date.now() - lastSyncAt > 15000) syncNow();
+});
+
+/* =====================================================================
+   HELPER TAMPILAN
+   ===================================================================== */
+function countTeams(ev){
+  return new Set(ev.participants.map(p=>normalizeText(p.team)).filter(Boolean)).size;
+}
+
+/* Untuk event Tim, satuan yang dihitung adalah TIM (bukan orang). */
+function getEventCounts(ev){
+  if(ev.type === 'tim'){
+    return { registered: countTeams(ev), capacity: ev.capacity, unit:'TIM', people: ev.participants.length };
+  }
+  return { registered: ev.participants.length, capacity: ev.capacity, unit:'PESERTA', people: ev.participants.length };
 }
 
 function getStatus(ev){
@@ -807,11 +1036,9 @@ function statusPillHtml(status){
   return `<span class="status-pill ${status.cls}"><i class="status-dot"></i>${status.label}</span>`;
 }
 
-function catStatus(cat){
-  const reg = cat.type === 'individu' ? cat.participants.length : countTeams(cat);
-  if(cat.capacity > 0 && reg >= cat.capacity) return { label:'PENUH', cls:'status-full', reg };
-  if(cat.capacity > 0 && reg / cat.capacity >= 0.8) return { label:'TERBATAS', cls:'status-limited', reg };
-  return { label:'DIBUKA', cls:'status-open', reg };
+function typeLabel(ev){
+  if(ev.type !== 'tim') return 'INDIVIDU';
+  return ev.teamSize === 'bebas' ? 'TIM · ANGGOTA BEBAS' : `TIM · ${ev.teamSize} ORANG/TIM`;
 }
 
 function formatEventDate(value){
@@ -823,9 +1050,8 @@ function escapeHtml(str){
   return String(str||'').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
 
-/* Hanya izinkan URL gambar http(s); nilai lain (termasuk skema berbahaya seperti
-   javascript:) diganti placeholder. Tetap di-escapeHtml() untuk mencegah nilai
-   yang mengandung tanda kutip keluar dari atribut src (stored XSS). */
+/* Hanya izinkan URL gambar https; nilai lain (termasuk skema berbahaya
+   seperti javascript:) diganti placeholder, lalu tetap di-escape. */
 function safeImageUrl(url){
   const value = String(url||'').trim();
   return /^https:\/\//i.test(value) ? escapeHtml(value) : PLACEHOLDER_IMG;
@@ -836,6 +1062,41 @@ function initials(name){
 }
 
 function findEvent(slug){ return events.find(e=>e.slug===slug); }
+
+function sortedEvents(list){
+  return list.slice().sort((a,b)=>
+    String(a.date||'').localeCompare(String(b.date||'')) ||
+    (a.sortOrder||0) - (b.sortOrder||0) ||
+    String(a.name||'').localeCompare(String(b.name||''),'id')
+  );
+}
+
+/* =====================================================================
+   DIREKTORI PESERTA — "siapa ikut apa"
+   Menggabungkan seluruh pendaftar dari semua event, dikelompokkan per
+   orang (nama + divisi), lengkap dengan daftar lomba yang diikuti.
+   ===================================================================== */
+function buildDirectory(){
+  const people = new Map();
+  events.forEach(ev=>{
+    ev.participants.forEach(p=>{
+      const key = `${normalizeText(p.name)}|${normalizeText(p.divisi)}`;
+      if(!people.has(key)) people.set(key, { name:p.name, divisi:p.divisi, entries:[] });
+      people.get(key).entries.push({
+        eventId: ev.id,
+        eventName: ev.name,
+        eventSlug: ev.slug,
+        eventGroup: ev.eventGroup || '',
+        flagEmoji: ev.flagEmoji || '',
+        team: p.team || '',
+        active: ev.active
+      });
+    });
+  });
+  return [...people.values()]
+    .map(person=>({ ...person, entries: person.entries.sort((a,b)=>a.eventName.localeCompare(b.eventName,'id')) }))
+    .sort((a,b)=> b.entries.length - a.entries.length || a.name.localeCompare(b.name,'id'));
+}
 
 /* =====================================================================
    ROUTER
@@ -851,55 +1112,62 @@ function parseHash(){
 
 function navigate(hash){ location.hash = hash; window.scrollTo({top:0}); }
 
-async function route(){
-  const { parts, anchor } = parseHash();
-  closeModal(true);
-  updateNavActive(parts, anchor);
+let instantRender = false;
 
-  if(parts.length === 0){
-    await renderHome();
-    if(anchor === 'events'){
-      setTimeout(()=>{ document.getElementById('events')?.scrollIntoView({behavior:'smooth'}); }, 60);
+async function route(options){
+  const { parts, anchor } = parseHash();
+  instantRender = !!(options && options.instant);
+  if(!instantRender) closeModal(true);
+  updateNavActive(parts, anchor);
+  try{
+    if(parts.length === 0){
+      await renderHome();
+      if(anchor === 'events'){
+        setTimeout(()=>{ document.getElementById('events')?.scrollIntoView({behavior:'smooth'}); }, 60);
+      }
+    } else if(parts[0] === 'event' && parts[1]){
+      await renderDetail(parts[1]);
+    } else if(parts[0] === 'peserta' && parts[1]){
+      await renderParticipants(parts[1]);
+    } else if(parts[0] === 'direktori'){
+      await renderDirectory();
+    } else if(parts[0] === 'sukses'){
+      renderSuccess();
+    } else {
+      renderNotFound();
     }
-  } else if(parts[0] === 'event' && parts[1]){
-    await renderDetail(parts[1]);
-  } else if(parts[0] === 'peserta' && parts[1]){
-    await renderParticipants(parts[1]);
-  } else if(parts[0] === 'sukses'){
-    renderSuccess();
-  } else {
-    renderNotFound();
+  } finally {
+    instantRender = false;
   }
 }
 
 function updateNavActive(parts, anchor){
-  const key = parts.length===0 ? (anchor==='events' ? 'events' : '/') : '';
+  let key = '';
+  if(parts.length === 0) key = anchor === 'events' ? 'events' : '/';
+  else if(parts[0] === 'direktori') key = 'direktori';
   document.querySelectorAll('[data-nav]').forEach(a=>{
     a.classList.toggle('active', a.dataset.nav === key);
   });
 }
 
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', ()=>route());
 window.addEventListener('DOMContentLoaded', async ()=>{
   try{
     await loadEvents();
     await route();
+    startAutoSync();
   }catch(error){
     console.error(error);
     app.innerHTML = `<div class="wrap">${errorStateHtml('/')}</div>`;
+    setSyncState('offline','GAGAL');
   }
 });
 
 /* =====================================================================
-   SKELETON / LOADING
+   SKELETON / STATE
    ===================================================================== */
 function skeletonHome(){
-  return `<div class="skeleton-wrap">
-    <div class="sk" style="height:38px;max-width:340px;margin:0 auto 40px;"></div>
-    <div class="sk-grid">
-      ${Array.from({length:3}).map(()=>`<div class="sk sk-card"></div>`).join('')}
-    </div>
-  </div>`;
+  return `<div class="sk-grid">${Array.from({length:3}).map(()=>`<div class="sk sk-card"></div>`).join('')}</div>`;
 }
 function skeletonDetail(){
   return `<div class="skeleton-wrap">
@@ -909,11 +1177,8 @@ function skeletonDetail(){
     <div class="sk" style="height:140px;border-radius:16px;"></div>
   </div>`;
 }
-function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+function wait(ms){ return instantRender ? Promise.resolve() : new Promise(r=>setTimeout(r, ms)); }
 
-/* =====================================================================
-   ERROR STATE (arsitektur siap untuk try/catch saat API asli disambung)
-   ===================================================================== */
 function errorStateHtml(retryHash){
   return `<div class="state-box">
     <div class="state-icon">!</div>
@@ -924,7 +1189,7 @@ function errorStateHtml(retryHash){
 }
 
 /* =====================================================================
-   HOME PAGE
+   HALAMAN HOME
    ===================================================================== */
 async function renderHome(){
   app.innerHTML = `
@@ -933,46 +1198,68 @@ async function renderHome(){
       <div class="hero-ring r2"></div>
       <div class="eyebrow fade-up">Platform Kegiatan Internal</div>
       <h1 class="fade-up" style="animation-delay:.08s">Event Internal AXG</h1>
-      <p class="fade-up" style="animation-delay:.16s">Ikuti berbagai kegiatan dan acara internal AXG.</p>
-      <a href="#/#events" class="btn btn-gold fade-up" style="animation-delay:.24s">LIHAT EVENT</a>
+      <p class="fade-up" style="animation-delay:.16s">Pilih lomba atau kegiatan yang ingin kamu ikuti. Bebas ikut berapa pun.</p>
+      <div class="hero-actions fade-up" style="animation-delay:.24s">
+        <a href="#/#events" class="btn btn-gold">LIHAT EVENT</a>
+        <a href="#/direktori" class="btn btn-outline">SIAPA IKUT APA</a>
+      </div>
     </section>
     <section class="section" id="events">
       <div class="section-head fade-up">
         <h2>Event <span class="accent">Tersedia</span></h2>
-        <p>Daftar dan ikuti kegiatan internal AXG.</p>
+        <p>Setiap kartu adalah satu lomba tersendiri — daftar di sebanyak apa pun yang kamu mau.</p>
       </div>
-      <div id="event-grid-holder">${skeletonHome().replace(/<div class="skeleton-wrap">|<\/div>$/g,'')}</div>
+      <div id="event-grid-holder">${skeletonHome()}</div>
     </section>`;
 
   const holder = document.getElementById('event-grid-holder');
-  holder.innerHTML = `<div class="sk-grid">${Array.from({length:3}).map(()=>`<div class="sk sk-card"></div>`).join('')}</div>`;
+  await wait(380);
 
-  await wait(420);
-
-  try{
-    const active = events.filter(e=>e.active);
-    if(active.length === 0){
-      holder.innerHTML = `<div class="state-box">
-        <div class="state-icon">✕</div>
-        <h3>Belum Ada Event</h3>
-        <p>Belum ada event yang sedang dibuka. Pantau terus halaman ini untuk kegiatan berikutnya!</p>
-      </div>`;
-      return;
-    }
-    holder.innerHTML = `<div class="event-grid">${active.map(eventCardHtml).join('')}</div>`;
-    setupReveal();
-  }catch(err){
-    holder.innerHTML = errorStateHtml('/');
+  const active = sortedEvents(events.filter(e=>e.active));
+  if(active.length === 0){
+    holder.innerHTML = `<div class="state-box">
+      <div class="state-icon">✕</div>
+      <h3>Belum Ada Event</h3>
+      <p>Belum ada event yang sedang dibuka. Pantau terus halaman ini untuk kegiatan berikutnya!</p>
+    </div>`;
+    return;
   }
+
+  // Kartu dikelompokkan berdasarkan "Nama Acara" bila diisi Admin.
+  const groups = new Map();
+  active.forEach(ev=>{
+    const key = ev.eventGroup || '';
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ev);
+  });
+  const named = [...groups.entries()].filter(([key])=>key);
+  const loose = groups.get('') || [];
+
+  let html = '';
+  named.forEach(([groupName, list])=>{
+    html += `<div class="event-group">
+      <div class="event-group-head"><span class="event-group-title">${escapeHtml(groupName)}</span><span class="event-group-count">${list.length} LOMBA</span></div>
+      <div class="event-grid">${list.map(eventCardHtml).join('')}</div>
+    </div>`;
+  });
+  if(loose.length){
+    html += named.length
+      ? `<div class="event-group"><div class="event-group-head"><span class="event-group-title">Kegiatan Lain</span><span class="event-group-count">${loose.length} EVENT</span></div><div class="event-grid">${loose.map(eventCardHtml).join('')}</div></div>`
+      : `<div class="event-grid">${loose.map(eventCardHtml).join('')}</div>`;
+  }
+  holder.innerHTML = html;
+  setupReveal();
 }
 
 function eventCardHtml(ev){
   const status = getStatus(ev);
-  const { registered, capacity } = getEventCounts(ev);
+  const { registered, capacity, unit, people } = getEventCounts(ev);
+  const closed = status.label === 'SLOT PENUH' || status.label === 'EVENT SELESAI';
   return `<div class="card reveal">
     <div class="card-media">
       <img src="${safeImageUrl(ev.image)}" alt="Foto ${escapeHtml(ev.name)}" loading="lazy">
       ${statusPillHtml(status)}
+      <span class="type-badge">${typeLabel(ev)}</span>
     </div>
     <div class="card-body">
       <h3>${ev.flagEmoji||''} ${escapeHtml(ev.name).toUpperCase()}</h3>
@@ -980,11 +1267,11 @@ function eventCardHtml(ev){
         <span>📅 ${formatEventDate(ev.date)}</span>
         <span>📍 ${escapeHtml(ev.location)}</span>
       </div>
-      <div class="card-count">${registered} / ${capacity} ${eventCountUnit(ev)}</div>
-      <div class="cap-bar ${registered>=capacity?'full':''}"><i style="width:${capacity>0?Math.min(100,(registered/capacity*100)):0}%"></i></div>
+      <div class="card-count">${registered} / ${capacity} ${unit}${ev.type==='tim'?` · ${people} ORANG`:''}</div>
+      <div class="cap-bar ${capacity>0&&registered>=capacity?'full':''}"><i style="width:${capacity>0?Math.min(100,(registered/capacity*100)):0}%"></i></div>
       <p class="card-desc">${escapeHtml(ev.tagline)}</p>
-      ${status.label==='SLOT PENUH' || status.label==='EVENT SELESAI'
-        ? `<button class="btn btn-disabled" disabled>${status.label==='EVENT SELESAI'?'EVENT SELESAI':'SLOT PENUH'}</button>`
+      ${closed
+        ? `<a href="#/event/${ev.slug}" class="btn btn-outline">${status.label === 'EVENT SELESAI' ? 'LIHAT HASIL' : 'LIHAT DETAIL'}</a>`
         : `<a href="#/event/${ev.slug}" class="btn btn-gold">DAFTAR SEKARANG</a>`}
     </div>
   </div>`;
@@ -999,119 +1286,105 @@ function setupReveal(){
 }
 
 /* =====================================================================
-   DETAIL PAGE
+   HALAMAN DETAIL EVENT
    ===================================================================== */
 async function renderDetail(slug){
   app.innerHTML = skeletonDetail();
-  await wait(380);
+  await wait(340);
   const ev = findEvent(slug);
   if(!ev){ app.innerHTML = `<div class="wrap">${errorStateHtml('/')}</div>`; return; }
 
   const status = getStatus(ev);
-  const { registered, capacity } = getEventCounts(ev);
+  const { registered, capacity, unit, people } = getEventCounts(ev);
   const isFull = status.label === 'SLOT PENUH';
   const isOver = !ev.active;
-
-  let bodyHtml = '';
-  if(ev.mode === 'A'){
-    bodyHtml = `
-      <div class="panel">
-        <h4>Aturan Main</h4>
-        <p>${escapeHtml(ev.rules || 'Tidak ada aturan khusus.')}</p>
-      </div>
-      ${ev.prizes && ev.prizes.length ? `<div class="panel">
-        <h4>🏆 Total Hadiah</h4>
-        <ul class="prize-list">${ev.prizes.map(p=>`<li><span class="prize-rank">${escapeHtml(p.label)}</span><span class="prize-value">${escapeHtml(p.value)}</span></li>`).join('')}</ul>
-      </div>` : ''}
-      ${ev.results ? `<div class="panel">
-        <h4>🏅 Hasil / Pemenang</h4>
-        <ul class="winner-list">${ev.results.map((r,i)=>`<li class="winner-row"><span class="winner-medal">${i+1}</span><div class="winner-info"><b>${escapeHtml(r.nama)}</b><span>${escapeHtml(r.posisi)} — ${escapeHtml(r.hadiah)}</span></div></li>`).join('')}</ul>
-      </div>` : ''}
-    `;
-  } else {
-    bodyHtml = `<div class="panel"><h4>Kategori / Pilihan Lomba</h4>
-      ${ev.categories.map(cat=>{
-        const cs = catStatus(cat);
-        const full = cs.label === 'PENUH';
-        return `<div class="category-card">
-          <div class="category-top">
-            <div>
-              <h5>${escapeHtml(cat.name)}</h5>
-              <span class="type-tag">${cat.type === 'tim' ? (cat.teamSize==='bebas'?'TIM · ANGGOTA BEBAS':'TIM · '+cat.teamSize+' ORANG/TIM') : 'INDIVIDU'}</span>
-            </div>
-            <span class="status-pill ${cs.cls}"><i class="status-dot"></i>${cs.label}</span>
-          </div>
-          <p class="category-desc">${escapeHtml(cat.rules)}</p>
-          <div class="category-meta"><span>${cs.reg} / ${cat.capacity} ${cat.type==='tim'?'TIM':'PESERTA'}</span></div>
-          <div class="cap-bar ${full?'full':''}"><i style="width:${cat.capacity>0?Math.min(100, cs.reg/cat.capacity*100):0}%"></i></div>
-          ${cat.prizes && cat.prizes.length ? `<ul class="prize-list" style="margin-top:12px">${cat.prizes.map(p=>`<li><span class="prize-rank">${escapeHtml(p.label)}</span><span class="prize-value">${escapeHtml(p.value)}</span></li>`).join('')}</ul>` : ''}
-          ${cat.results ? `<ul class="winner-list" style="margin-top:12px">${cat.results.map((r,i)=>`<li class="winner-row"><span class="winner-medal">${i+1}</span><div class="winner-info"><b>${escapeHtml(r.nama)}</b><span>${escapeHtml(r.posisi)} — ${escapeHtml(r.hadiah)}</span></div></li>`).join('')}</ul>` : ''}
-          ${(!isOver && !full) ? `<button class="btn btn-outline" style="width:100%;margin-top:14px" onclick="openRegisterModal('${ev.slug}','${cat.id}')">DAFTAR ${escapeHtml(cat.name).toUpperCase()}</button>` : ''}
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
+  const teams = ev.type === 'tim' ? groupByTeam(ev.participants) : null;
 
   app.innerHTML = `
     <div class="detail-hero">
       <img class="detail-banner" src="${safeImageUrl(ev.image)}" alt="Foto ${escapeHtml(ev.name)}">
       <div class="detail-banner-overlay"></div>
-      <div class="detail-head"><a href="#/" class="back-link">← Kembali ke Event</a></div>
     </div>
     <div class="wrap">
       <div class="detail-title-block">
+        <a href="#/" class="back-link back-link-inline">← Kembali ke Daftar Event</a>
         ${statusPillHtml(status)}
-        <h1 style="margin-top:14px">${ev.flagEmoji||''} ${escapeHtml(ev.name).toUpperCase()}</h1>
+        <span class="type-badge type-badge-static">${typeLabel(ev)}</span>
+        <h1>${ev.flagEmoji||''} ${escapeHtml(ev.name).toUpperCase()}</h1>
+        ${ev.eventGroup ? `<div class="detail-group">Bagian dari <b>${escapeHtml(ev.eventGroup)}</b></div>` : ''}
         <div class="detail-info-row">
           <span>📅 <b>${formatEventDate(ev.date)}</b></span>
           <span>📍 <b>${escapeHtml(ev.location)}</b></span>
-          <span class="card-count">${registered} / ${capacity} ${eventCountUnit(ev)}</span>
+          <span class="card-count">${registered} / ${capacity} ${unit}${ev.type==='tim'?` · ${people} ORANG`:''}</span>
         </div>
       </div>
       <div class="detail-body">
         <div class="main-col">
-          <div class="panel"><h4>Tentang Event</h4><p>${escapeHtml(ev.description)}</p></div>
-          <div style="margin-top:22px">${bodyHtml}</div>
+          <div class="panel"><h4>Tentang Event</h4><p>${escapeHtml(ev.description) || 'Belum ada deskripsi.'}</p></div>
+          <div class="panel"><h4>Aturan Main</h4><p>${escapeHtml(ev.rules) || 'Tidak ada aturan khusus.'}</p></div>
+          ${ev.prizes.length ? `<div class="panel">
+            <h4>🏆 Hadiah</h4>
+            <ul class="prize-list">${ev.prizes.map(p=>`<li><span class="prize-rank">${escapeHtml(p.label)}</span><span class="prize-value">${escapeHtml(p.value)}</span></li>`).join('')}</ul>
+          </div>` : ''}
+          ${ev.results ? `<div class="panel">
+            <h4>🏅 Pemenang</h4>
+            <ul class="winner-list">${ev.results.map((r,i)=>`<li class="winner-row"><span class="winner-medal">${i+1}</span><div class="winner-info"><b>${escapeHtml(r.nama)}</b><span>${escapeHtml(r.posisi)}${r.hadiah?` — ${escapeHtml(r.hadiah)}`:''}</span></div></li>`).join('')}</ul>
+          </div>` : ''}
+          ${teams ? `<div class="panel">
+            <h4>Tim Yang Sudah Terbentuk</h4>
+            ${teams.length ? `<div class="team-chip-list">${teams.map(t=>`<span class="team-chip ${ev.teamSize!=='bebas' && t.members.length>=Number(ev.teamSize)?'full':''}">${escapeHtml(t.name)} <i>${t.members.length}${ev.teamSize!=='bebas'?`/${ev.teamSize}`:''}</i></span>`).join('')}</div>`
+              : `<p>Belum ada tim yang terbentuk. Jadilah yang pertama membuat tim!</p>`}
+          </div>` : ''}
         </div>
         <div class="side-col">
           <div class="panel">
             <h4>Pendaftaran</h4>
-            <p style="margin-bottom:16px">Total ${registered} dari ${capacity} slot terisi.</p>
+            <p style="margin-bottom:16px">Terisi ${registered} dari ${capacity} ${unit.toLowerCase()}.</p>
             <div class="cap-bar ${isFull?'full':''}" style="margin-bottom:18px"><i style="width:${capacity>0?Math.min(100,(registered/capacity*100)):0}%"></i></div>
             ${isOver ? `<button class="btn btn-disabled" style="width:100%" disabled>EVENT SELESAI</button>`
               : isFull ? `<button class="btn btn-disabled" style="width:100%" disabled>SLOT PENUH</button>`
-              : ev.mode === 'A' ? `<button class="btn btn-gold" style="width:100%" onclick="openRegisterModal('${ev.slug}')">DAFTAR SEKARANG</button>`
-              : `<p style="font-size:12px;color:var(--muted-2)">Pilih kategori lomba di samping untuk mendaftar.</p>`}
+              : `<button class="btn btn-gold" style="width:100%" onclick="openRegisterModal('${ev.slug}')">DAFTAR SEKARANG</button>`}
             <a href="#/peserta/${ev.slug}" class="btn btn-outline" style="width:100%;margin-top:10px">LIHAT DAFTAR PESERTA</a>
+            <a href="#/direktori" class="btn btn-ghost-link" style="width:100%;margin-top:10px">SIAPA IKUT APA →</a>
+            <p class="side-note">Kamu bebas mendaftar di lomba lain juga — tidak ada batasan jumlah event yang diikuti.</p>
           </div>
         </div>
       </div>
     </div>`;
 }
 
+function groupByTeam(participants){
+  const map = new Map();
+  participants.forEach(p=>{
+    if(!p.team) return;
+    const key = normalizeText(p.team);
+    if(!map.has(key)) map.set(key, { name:p.team, members:[] });
+    map.get(key).members.push(p);
+  });
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'id'));
+}
+
 function renderNotFound(){
-  app.innerHTML = `<div class="wrap">${`<div class="state-box"><div class="state-icon">?</div><h3>Halaman Tidak Ditemukan</h3><p>Event yang kamu cari tidak tersedia.</p><a href="#/" class="btn btn-gold">KEMBALI KE HOME</a></div>`}</div>`;
+  app.innerHTML = `<div class="wrap"><div class="state-box"><div class="state-icon">?</div><h3>Halaman Tidak Ditemukan</h3><p>Event yang kamu cari tidak tersedia.</p><a href="#/" class="btn btn-gold">KEMBALI KE HOME</a></div></div>`;
 }
 
 /* =====================================================================
-   REGISTRATION MODAL
+   MODAL PENDAFTARAN
    ===================================================================== */
 const overlay = document.getElementById('modal-overlay');
 const modalBox = document.getElementById('modal-box');
 let modalCtx = null;
 
-function openRegisterModal(slug, categoryId){
+function openRegisterModal(slug){
   const ev = findEvent(slug);
   if(!ev) return;
-  modalCtx = { slug, categoryId: categoryId || null, openedAt: Date.now() };
-  modalBox.innerHTML = registerFormHtml(ev, categoryId);
+  modalCtx = { slug, openedAt: Date.now() };
+  modalBox.innerHTML = registerFormHtml(ev);
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
-  const catSelect = document.getElementById('f-category');
-  if(catSelect) catSelect.addEventListener('change', onCategoryChange);
   const teamSelect = document.getElementById('f-team');
   if(teamSelect) teamSelect.addEventListener('change', onTeamChange);
-  if(ev.mode==='B' && categoryId) onCategoryChange();
+  setTimeout(()=>document.getElementById('f-nama')?.focus(), 120);
 }
 
 function closeModal(silent){
@@ -1121,18 +1394,25 @@ function closeModal(silent){
 }
 overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeModal(); });
 
-function registerFormHtml(ev, presetCategoryId){
-  const extra = ev.mode === 'A' ? (ev.extraFields || []) : [];
+function registerFormHtml(ev){
+  const teams = ev.type === 'tim' ? groupByTeam(ev.participants) : [];
+  const fixedTeamSize = ev.teamSize !== 'bebas' ? Number(ev.teamSize) : null;
+  const teamOptions = teams.map(t=>{
+    const full = fixedTeamSize ? t.members.length >= fixedTeamSize : false;
+    const countLabel = fixedTeamSize ? `${t.members.length}/${fixedTeamSize}` : `${t.members.length} anggota`;
+    return `<option value="${escapeHtml(t.name)}" ${full?'disabled':''}>${escapeHtml(t.name)} (${countLabel})${full?' — Penuh':''}</option>`;
+  }).join('');
+
   return `
     <div class="modal-head">
-      <div><h3>Form Pendaftaran</h3><span>${escapeHtml(ev.name)}</span></div>
+      <div><h3>Form Pendaftaran</h3><span>${escapeHtml(ev.name)} · ${typeLabel(ev)}</span></div>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="form-alert" id="form-alert"></div>
     <form id="reg-form" novalidate onsubmit="return handleSubmit(event)">
       <div class="field">
         <label>Nama Lengkap</label>
-        <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
+        <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso" autocomplete="name">
         <div class="error-text" id="err-nama"></div>
       </div>
       <div class="field">
@@ -1146,27 +1426,26 @@ function registerFormHtml(ev, presetCategoryId){
         <small>Pastikan username Telegram aktif dan dapat dihubungi oleh Admin.</small>
         <div class="error-text" id="err-telegram"></div>
       </div>
-      ${ev.mode === 'B' ? `
+      ${ev.type === 'tim' ? `
       <div class="field">
-        <label>Kategori / Pilihan Lomba</label>
-        <select id="f-category">
-          <option value="">— Pilih Kategori —</option>
-          ${ev.categories.map(c=>{
-            const cs = catStatus(c);
-            const full = cs.label === 'PENUH';
-            return `<option value="${c.id}" ${full?'disabled':''} ${presetCategoryId===c.id?'selected':''}>${escapeHtml(c.name)} ${full?'(Penuh)':''}</option>`;
-          }).join('')}
+        <label>Pilih Team</label>
+        <select id="f-team">
+          <option value="">— Pilih Team —</option>
+          ${teamOptions}
+          <option value="__new__">+ Buat Team Baru</option>
         </select>
-        <div class="error-text" id="err-category"></div>
+        <small>${fixedTeamSize ? `Satu tim maksimal ${fixedTeamSize} orang.` : 'Jumlah anggota per tim bebas.'}</small>
+        <div class="error-text" id="err-team"></div>
       </div>
-      <div id="team-field-holder"></div>
-      ` : ''}
-      ${extra.map(f=>`
+      <div class="field hide" id="new-team-field">
+        <label>Nama Team Baru</label>
+        <input type="text" id="f-team-new" placeholder="Contoh: Team Garuda">
+        <div class="error-text" id="err-team-new"></div>
+      </div>` : ''}
+      ${(ev.extraFields||[]).map(f=>`
       <div class="field">
-        <label>${escapeHtml(f.label)}</label>
-        ${f.type==='number'
-          ? `<input type="number" id="f-extra-${f.id}" placeholder="${escapeHtml(f.placeholder||'')}">`
-          : `<input type="text" id="f-extra-${f.id}" placeholder="${escapeHtml(f.placeholder||'')}">`}
+        <label>${escapeHtml(f.label)}${f.required?'':' <span style="color:var(--muted-2);font-weight:400">(opsional)</span>'}</label>
+        <input type="${f.type==='number'?'number':'text'}" id="f-extra-${f.id}" placeholder="${escapeHtml(f.placeholder||'')}">
         <div class="error-text" id="err-extra-${f.id}"></div>
       </div>`).join('')}
       <div style="position:absolute;left:-9999px;top:-9999px" aria-hidden="true">
@@ -1177,56 +1456,22 @@ function registerFormHtml(ev, presetCategoryId){
     </form>`;
 }
 
-function onCategoryChange(){
-  const ev = findEvent(modalCtx.slug);
-  const catId = document.getElementById('f-category').value;
-  const holder = document.getElementById('team-field-holder');
-  modalCtx.categoryId = catId || null;
-  if(!catId){ holder.innerHTML=''; return; }
-  const cat = ev.categories.find(c=>c.id===catId);
-  if(cat.type !== 'tim'){ holder.innerHTML=''; return; }
-
-  const teams = {};
-  cat.participants.forEach(p=>{ if(p.team) teams[p.team] = (teams[p.team]||0)+1; });
-  const fixedTeamSize = Number(cat.teamSize) > 0 ? Number(cat.teamSize) : null;
-  const teamOptions = Object.keys(teams).map(t=>{
-    const full = fixedTeamSize ? teams[t] >= fixedTeamSize : false;
-    const countLabel = fixedTeamSize ? `${teams[t]}/${fixedTeamSize}` : `${teams[t]} anggota`;
-    return `<option value="${escapeHtml(t)}" ${full?'disabled':''}>${escapeHtml(t)} (${countLabel})${full?' — Penuh':''}</option>`;
-  }).join('');
-
-  holder.innerHTML = `
-    <div class="field">
-      <label>Pilih Team</label>
-      <select id="f-team">
-        <option value="">— Pilih Team —</option>
-        ${teamOptions}
-        <option value="__new__">+ Buat Team Baru</option>
-      </select>
-      <div class="error-text" id="err-team"></div>
-    </div>
-    <div class="field hide" id="new-team-field">
-      <label>Nama Team Baru</label>
-      <input type="text" id="f-team-new" placeholder="Contoh: Team Garuda">
-      <div class="error-text" id="err-team-new"></div>
-    </div>`;
-  document.getElementById('f-team').addEventListener('change', onTeamChange);
-}
-
 function onTeamChange(){
   const val = document.getElementById('f-team').value;
   const newField = document.getElementById('new-team-field');
   newField.classList.toggle('hide', val !== '__new__');
+  if(val === '__new__') setTimeout(()=>document.getElementById('f-team-new')?.focus(), 60);
 }
 
 function setFieldError(inputId, errId, msg){
   const input = document.getElementById(inputId);
   const err = document.getElementById(errId);
+  if(!input || !err) return;
   if(msg){
     input.classList.add('field-error');
     err.textContent = msg;
     err.classList.add('show');
-  } else if(input){
+  } else {
     input.classList.remove('field-error');
     err.classList.remove('show');
   }
@@ -1234,6 +1479,7 @@ function setFieldError(inputId, errId, msg){
 
 function showAlert(msg){
   const alertBox = document.getElementById('form-alert');
+  if(!alertBox) return;
   alertBox.textContent = msg;
   alertBox.classList.add('show');
 }
@@ -1246,6 +1492,7 @@ async function handleSubmit(e){
   e.preventDefault();
   hideAlert();
   const ev = findEvent(modalCtx.slug);
+  if(!ev) return false;
   let valid = true;
 
   const nama = document.getElementById('f-nama').value.trim();
@@ -1262,35 +1509,27 @@ async function handleSubmit(e){
   else if(!tgRegex.test(telegram)){ setFieldError('f-telegram','err-telegram','Masukkan username Telegram yang valid.'); valid = false; }
   else setFieldError('f-telegram','err-telegram','');
 
-  let category = null, team = null, newTeamName = null;
-  if(ev.mode === 'B'){
-    const catSelect = document.getElementById('f-category');
-    category = catSelect.value;
-    setFieldError('f-category','err-category', category ? '' : 'Field ini wajib diisi.');
-    if(!category) valid = false;
-
-    if(category){
-      const cat = ev.categories.find(c=>c.id===category);
-      if(cat.type === 'tim'){
-        const teamSelect = document.getElementById('f-team');
-        team = teamSelect ? teamSelect.value : '';
-        setFieldError('f-team','err-team', team ? '' : 'Field ini wajib diisi.');
-        if(!team){ valid = false; }
-        else if(team === '__new__'){
-          newTeamName = document.getElementById('f-team-new').value.trim();
-          setFieldError('f-team-new','err-team-new', newTeamName ? '' : 'Field ini wajib diisi.');
-          if(!newTeamName) valid = false;
-        }
-      }
+  let teamName = null;
+  if(ev.type === 'tim'){
+    const teamSelect = document.getElementById('f-team');
+    const choice = teamSelect ? teamSelect.value : '';
+    setFieldError('f-team','err-team', choice ? '' : 'Pilih team atau buat team baru.');
+    if(!choice) valid = false;
+    else if(choice === '__new__'){
+      teamName = document.getElementById('f-team-new').value.trim();
+      setFieldError('f-team-new','err-team-new', teamName ? '' : 'Nama team wajib diisi.');
+      if(!teamName) valid = false;
+    } else {
+      teamName = choice;
     }
   }
 
   const extraVals = {};
-  const extraFields = ev.mode === 'A' ? (ev.extraFields || []) : [];
-  extraFields.forEach(f=>{
+  (ev.extraFields||[]).forEach(f=>{
     const el = document.getElementById('f-extra-'+f.id);
+    if(!el) return;
     const v = el.value.trim();
-    extraVals[f.id] = v;
+    extraVals[f.label || f.id] = v;
     if(f.required){
       setFieldError('f-extra-'+f.id,'err-extra-'+f.id, v ? '' : 'Field ini wajib diisi.');
       if(!v) valid = false;
@@ -1299,43 +1538,34 @@ async function handleSubmit(e){
 
   if(!valid) return false;
 
-  // cek kapasitas
-  if(ev.mode === 'A'){
-    if(ev.participants.length >= ev.capacity){ showAlert('Mohon maaf, slot sudah penuh.'); return false; }
-  } else {
-    const cat = ev.categories.find(c=>c.id===category);
-    const cs = catStatus(cat);
-    if(cs.reg >= cat.capacity && !(cat.type==='tim' && team && team!=='__new__')){
-      showAlert('Mohon maaf, kategori ini sudah penuh.'); return false;
+  // Pemeriksaan kapasitas di sisi klien (server tetap memeriksa ulang).
+  const counts = getEventCounts(ev);
+  if(ev.type === 'tim'){
+    const teams = groupByTeam(ev.participants);
+    const existing = teams.find(t=>normalizeText(t.name) === normalizeText(teamName));
+    if(!existing && counts.capacity > 0 && counts.registered >= counts.capacity){
+      showAlert('Mohon maaf, slot tim sudah penuh.'); return false;
     }
-    if(cat.type === 'tim' && team && team !== '__new__' && Number(cat.teamSize) > 0){
-      const members = cat.participants.filter(p=>normalizeText(p.team)===normalizeText(team)).length;
-      if(members >= Number(cat.teamSize)){
-        showAlert('Mohon maaf, anggota tim ini sudah penuh.'); return false;
-      }
+    if(existing && ev.teamSize !== 'bebas' && existing.members.length >= Number(ev.teamSize)){
+      showAlert('Mohon maaf, anggota tim ini sudah penuh.'); return false;
     }
+  } else if(counts.capacity > 0 && counts.registered >= counts.capacity){
+    showAlert('Mohon maaf, slot sudah penuh.'); return false;
   }
 
-  // simpan pendaftaran
-  let catName = null, teamName = null;
-  const cat = ev.mode === 'B' ? ev.categories.find(c=>c.id===category) : null;
-  const scopedParticipants = ev.mode === 'A' ? ev.participants : (cat ? cat.participants : []);
-  const dup = scopedParticipants.some(p => normalizeText(p.name)===normalizeText(nama) && normalizeText(p.divisi)===normalizeText(divisi));
-  if(dup){ showAlert(cat ? `Anda sudah terdaftar pada kategori "${cat.name}".` : 'Anda sudah terdaftar pada event ini.'); return false; }
-  if(cat){
-    catName = cat.name;
-    teamName = cat.type === 'tim' ? (team === '__new__' ? newTeamName : team) : null;
-  }
+  const duplicate = ev.participants.some(p=>
+    normalizeText(p.name)===normalizeText(nama) && normalizeText(p.divisi)===normalizeText(divisi));
+  if(duplicate){ showAlert('Anda sudah terdaftar pada event ini. Silakan pilih lomba lain.'); return false; }
 
   const submitButton = document.querySelector('#reg-form button[type="submit"]');
-  if(submitButton){ submitButton.disabled = true; submitButton.textContent = 'MENYIMPAN...'; }
+  setBusy(submitButton, true);
+  showLoader('MENDAFTARKAN…', apiIsConfigured() ? 'Menyimpan data Anda ke server' : 'Mode preview — data tidak tersimpan permanen');
   try{
     let saved;
     if(apiIsConfigured()){
       saved = await AxgApi.saveParticipant({
         eventId:ev.id,
         eventSlug:ev.slug,
-        categoryId:category,
         name:nama,
         divisi,
         telegram:telegram.replace(/^@+/,''),
@@ -1347,45 +1577,39 @@ async function handleSubmit(e){
       events = (await AxgApi.getEvents()).map(normalizeEvent);
     } else {
       if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
-      const maxNumber = events.flatMap(item=> item.mode==='A' ? item.participants : item.categories.flatMap(c=>c.participants))
-        .reduce((max,p)=>{
-          const match = String(p.registrationNumber || p.id || '').match(new RegExp(`^${normalizePrefix(ev.prefix)}-(\\d+)$`,'i'));
-          return match ? Math.max(max, Number(match[1])) : max;
-        },0);
-      saved = {
-        id:uid(),
-        registrationNumber:fmtRegNo(ev.prefix,maxNumber+1),
-        name:nama,
-        divisi,
-        telegram:telegram.replace(/^@+/,''),
-        team:teamName,
-        extra:extraVals
-      };
-      if(ev.mode === 'A') ev.participants.push(normalizeParticipant(saved, ev.participants.length));
-      else cat.participants.push(normalizeParticipant(saved, cat.participants.length));
+      const maxNumber = ev.participants.reduce((max,p)=>{
+        const match = String(p.registrationNumber || '').match(new RegExp(`^${normalizePrefix(ev.prefix)}-(\\d+)$`,'i'));
+        return match ? Math.max(max, Number(match[1])) : max;
+      },0);
+      saved = { id:uid(), registrationNumber:fmtRegNo(ev.prefix,maxNumber+1), name:nama, divisi, team:teamName };
+      ev.participants.push(normalizeParticipant(saved, ev.participants.length));
     }
     lastRegistration = {
       regNo:saved.registrationNumber,
       eventName:ev.name,
       eventSlug:ev.slug,
-      nama,
-      divisi,
-      telegram,
-      category:catName,
+      eventGroup:ev.eventGroup,
+      nama, divisi, telegram,
       team:teamName
     };
   }catch(error){
+    hideLoader();
+    setBusy(submitButton, false);
     showAlert(error.message || 'Pendaftaran gagal disimpan.');
-    if(submitButton){ submitButton.disabled = false; submitButton.textContent = 'DAFTAR'; }
+    toastError(error.message || 'Pendaftaran gagal disimpan. Silakan coba lagi.');
     return false;
   }
+  hideLoader();
+  setBusy(submitButton, false);
+  markSynced();
+  toastSuccess(`${nama} berhasil terdaftar di ${ev.name}.`,'PENDAFTARAN BERHASIL');
   closeModal(true);
   navigate('#/sukses');
   return false;
 }
 
 /* =====================================================================
-   SUCCESS PAGE
+   HALAMAN SUKSES
    ===================================================================== */
 function renderSuccess(){
   if(!lastRegistration){ navigate('#/'); return; }
@@ -1402,120 +1626,166 @@ function renderSuccess(){
       <div class="ticket-top">
         <div class="eyebrow">Bukti Pendaftaran</div>
         <h3>${escapeHtml(r.eventName)}</h3>
-        <span class="status-pill status-open" style="position:static;display:inline-flex;margin-top:6px"><i class="status-dot"></i>${persisted?'TERDAFTAR':'MODE PREVIEW'}</span>
+        ${r.eventGroup ? `<div style="font-size:11.5px;color:var(--muted);margin-top:4px">${escapeHtml(r.eventGroup)}</div>` : ''}
+        <span class="status-pill status-open" style="position:static;display:inline-flex;margin-top:8px"><i class="status-dot"></i>${persisted?'TERDAFTAR':'MODE PREVIEW'}</span>
         <div class="ticket-notch left"></div>
         <div class="ticket-notch right"></div>
       </div>
       <div class="ticket-bottom">
         <div class="reg-no-label">Nomor Pendaftaran</div>
-        <div class="reg-no">${r.regNo}</div>
+        <div class="reg-no">${escapeHtml(r.regNo)}</div>
         <div class="barcode">${bars}</div>
         <div class="ticket-detail">
           <div><span>Nama</span><span>${escapeHtml(r.nama)}</span></div>
           <div><span>Divisi</span><span>${escapeHtml(r.divisi)}</span></div>
           <div><span>Telegram</span><span>${escapeHtml(r.telegram)}</span></div>
-          ${r.category ? `<div><span>Kategori</span><span>${escapeHtml(r.category)}</span></div>` : ''}
           ${r.team ? `<div><span>Team</span><span>${escapeHtml(r.team)}</span></div>` : ''}
         </div>
       </div>
     </div>
     <div class="success-actions">
-      <a href="#/peserta/${r.eventSlug}" class="btn btn-gold">LIHAT DAFTAR PESERTA</a>
-      <a href="#/event/${r.eventSlug}" class="btn btn-outline">KEMBALI KE EVENT</a>
+      <a href="#/" class="btn btn-gold">IKUT LOMBA LAIN</a>
+      <a href="#/peserta/${r.eventSlug}" class="btn btn-outline">LIHAT DAFTAR PESERTA</a>
+      <a href="#/direktori" class="btn btn-outline">SIAPA IKUT APA</a>
     </div>
+    <p class="save-note">Simpan atau screenshot nomor pendaftaran ini.</p>
   </div>`;
 }
 
 /* =====================================================================
-   PARTICIPANTS PAGE (PUBLIK)
+   HALAMAN DAFTAR PESERTA (per event)
    ===================================================================== */
 async function renderParticipants(slug){
   app.innerHTML = skeletonDetail();
-  await wait(360);
+  await wait(320);
   const ev = findEvent(slug);
   if(!ev){ app.innerHTML = `<div class="wrap">${errorStateHtml('/')}</div>`; return; }
 
-  const { registered, capacity } = getEventCounts(ev);
-  const allParticipants = ev.mode === 'A' ? ev.participants.map(p=>({...p})) : ev.categories.flatMap(c=>c.participants.map(p=>({...p, category:c.name, categoryId:c.id})));
-  const divisiList = [...new Set(allParticipants.map(p=>p.divisi))].sort();
-  const categoryList = ev.mode === 'B' ? ev.categories.map(c=>c.name) : [];
+  const { registered, capacity, unit } = getEventCounts(ev);
+  const all = ev.participants.map(p=>({...p}));
+  const divisiList = [...new Set(all.map(p=>p.divisi).filter(Boolean))].sort();
 
   app.innerHTML = `
     <div class="participants-head">
       <a href="#/event/${ev.slug}" class="back-link" style="padding-top:0">← Kembali ke Detail Event</a>
       <h1 style="margin-top:14px">Daftar Peserta</h1>
-      <div class="participants-count">${registered} / ${capacity} ${eventCountUnit(ev)} — ${escapeHtml(ev.name)}</div>
+      <div class="participants-count">${registered} / ${capacity} ${unit} — ${escapeHtml(ev.name)}${ev.type==='tim'?` · ${all.length} orang`:''}</div>
     </div>
     <div class="filters">
       <input type="text" id="pf-search" placeholder="Cari nama peserta...">
       <select id="pf-divisi"><option value="">Semua Divisi</option>${divisiList.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
-      ${categoryList.length ? `<select id="pf-category"><option value="">Semua Kategori</option>${categoryList.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select>` : ''}
+      <a href="#/direktori" class="btn btn-outline" style="flex:0 0 auto">SIAPA IKUT APA</a>
     </div>
     <div class="participants-body" id="participants-list"></div>`;
 
   const renderList = ()=>{
-    const search = (document.getElementById('pf-search').value||'').toLowerCase().trim();
+    const search = normalizeText(document.getElementById('pf-search').value);
     const divisi = document.getElementById('pf-divisi').value;
-    const categorySel = document.getElementById('pf-category');
-    const category = categorySel ? categorySel.value : '';
-
-    const filtered = allParticipants.filter(p=>{
-      if(search && !p.name.toLowerCase().includes(search)) return false;
-      if(divisi && p.divisi !== divisi) return false;
-      if(category && p.category !== category) return false;
-      return true;
-    });
-
+    const filtered = all.filter(p=>
+      (!search || normalizeText(p.name).includes(search)) &&
+      (!divisi || p.divisi === divisi)
+    );
     const holder = document.getElementById('participants-list');
     if(filtered.length === 0){
-      holder.innerHTML = `<div class="no-results">Tidak ada peserta yang cocok dengan pencarian/filter.</div>`;
+      holder.innerHTML = `<div class="no-results">${all.length ? 'Tidak ada peserta yang cocok dengan pencarian.' : 'Belum ada yang mendaftar. Jadilah yang pertama!'}</div>`;
       return;
     }
-
-    if(ev.mode === 'A'){
-      holder.innerHTML = filtered.map(p=>participantRowHtml(p)).join('');
+    if(ev.type === 'tim'){
+      const teams = groupByTeam(filtered);
+      holder.innerHTML = teams.map(team=>`
+        <div class="group-block">
+          <div class="group-title">Tim "${escapeHtml(team.name)}" <span class="group-count">${team.members.length}${ev.teamSize!=='bebas'?`/${ev.teamSize}`:''} orang</span></div>
+          ${team.members.map(participantRowHtml).join('')}
+        </div>`).join('');
       return;
     }
-
-    // mode B: kelompokkan per kategori, per tim jika ada
-    let html = '';
-    ev.categories.forEach(cat=>{
-      const catParticipants = filtered.filter(p=>p.categoryId === cat.id);
-      if(catParticipants.length === 0) return;
-      html += `<div class="group-block"><div class="group-title">${escapeHtml(cat.name)}</div>`;
-      if(cat.type === 'tim'){
-        const teams = {};
-        catParticipants.forEach(p=>{ (teams[p.team] = teams[p.team]||[]).push(p); });
-        Object.keys(teams).forEach(teamName=>{
-          html += `<div class="team-title">Tim "${escapeHtml(teamName)}"</div>`;
-          teams[teamName].forEach(p=>{ html += participantRowHtml(p); });
-        });
-      } else {
-        catParticipants.forEach(p=>{ html += participantRowHtml(p); });
-      }
-      html += `</div>`;
-    });
-    holder.innerHTML = html || `<div class="no-results">Tidak ada peserta yang cocok dengan pencarian/filter.</div>`;
+    holder.innerHTML = filtered.map(participantRowHtml).join('');
   };
-
-  function participantRowHtml(p){
-    return `<div class="p-row">
-      <span class="p-no">${String(p.no).padStart(2,'0')}</span>
-      <span class="p-avatar">${initials(p.name)}</span>
-      <span class="p-name">${escapeHtml(p.name)}</span>
-      <span class="p-divisi">${escapeHtml(p.divisi)}</span>
-    </div>`;
-  }
 
   document.getElementById('pf-search').addEventListener('input', renderList);
   document.getElementById('pf-divisi').addEventListener('change', renderList);
-  const catSel = document.getElementById('pf-category');
-  if(catSel) catSel.addEventListener('change', renderList);
+  renderList();
+}
+
+function participantRowHtml(p){
+  return `<div class="p-row">
+    <span class="p-no">${String(p.no).padStart(2,'0')}</span>
+    <span class="p-avatar">${initials(p.name)}</span>
+    <span class="p-name">${escapeHtml(p.name)}</span>
+    <span class="p-divisi">${escapeHtml(p.divisi)}</span>
+  </div>`;
+}
+
+/* =====================================================================
+   HALAMAN "SIAPA IKUT APA"
+   Menjawab kebutuhan utama: pengunjung bisa melihat siapa saja yang
+   sudah mendaftar dan lomba apa saja yang diikuti tiap orang.
+   ===================================================================== */
+async function renderDirectory(){
+  app.innerHTML = skeletonDetail();
+  await wait(300);
+
+  const directory = buildDirectory();
+  const divisiList = [...new Set(directory.map(p=>p.divisi).filter(Boolean))].sort();
+  const eventList = sortedEvents(events.filter(e=>e.participants.length));
+  const totalSlot = directory.reduce((sum,p)=>sum + p.entries.length, 0);
+
+  app.innerHTML = `
+    <div class="participants-head">
+      <a href="#/" class="back-link" style="padding-top:0">← Kembali ke Daftar Event</a>
+      <h1 style="margin-top:14px">Siapa Ikut Apa</h1>
+      <div class="participants-count">${directory.length} ORANG · ${totalSlot} PENDAFTARAN · ${eventList.length} EVENT</div>
+      <p class="dir-note">Setiap orang bebas mengikuti berapa pun lomba. Daftar di bawah menampilkan semua pendaftar beserta lomba yang diikutinya.</p>
+    </div>
+    <div class="filters">
+      <input type="text" id="dir-search" placeholder="Cari nama orang...">
+      <select id="dir-divisi"><option value="">Semua Divisi</option>${divisiList.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
+      <select id="dir-event"><option value="">Semua Event</option>${eventList.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}</select>
+    </div>
+    <div class="participants-body" id="dir-list"></div>`;
+
+  const renderList = ()=>{
+    const search = normalizeText(document.getElementById('dir-search').value);
+    const divisi = document.getElementById('dir-divisi').value;
+    const eventId = document.getElementById('dir-event').value;
+    const filtered = directory.filter(person=>
+      (!search || normalizeText(person.name).includes(search)) &&
+      (!divisi || person.divisi === divisi) &&
+      (!eventId || person.entries.some(entry=>entry.eventId === eventId))
+    );
+    const holder = document.getElementById('dir-list');
+    if(!filtered.length){
+      holder.innerHTML = `<div class="no-results">${directory.length ? 'Tidak ada orang yang cocok dengan pencarian.' : 'Belum ada pendaftar sama sekali.'}</div>`;
+      return;
+    }
+    holder.innerHTML = filtered.map(person=>`
+      <div class="dir-card">
+        <div class="dir-person">
+          <span class="p-avatar">${initials(person.name)}</span>
+          <div class="dir-identity">
+            <b>${escapeHtml(person.name)}</b>
+            <span>${escapeHtml(person.divisi)}</span>
+          </div>
+          <span class="dir-total">${person.entries.length} LOMBA</span>
+        </div>
+        <div class="dir-events">
+          ${person.entries.map(entry=>`
+            <a class="dir-event-chip ${entry.active?'':'done'}" href="#/event/${entry.eventSlug}" title="${escapeHtml(entry.eventName)}">
+              <span>${entry.flagEmoji||'•'} ${escapeHtml(entry.eventName)}</span>
+              ${entry.team ? `<i>Tim ${escapeHtml(entry.team)}</i>` : ''}
+            </a>`).join('')}
+        </div>
+      </div>`).join('');
+  };
+
+  document.getElementById('dir-search').addEventListener('input', renderList);
+  document.getElementById('dir-divisi').addEventListener('change', renderList);
+  document.getElementById('dir-event').addEventListener('change', renderList);
   renderList();
 }
 
 /* =====================================================================
-   HEADER / MOBILE NAV
+   HEADER / MOBILE NAV / TEMA
    ===================================================================== */
 const hamburger = document.getElementById('hamburger');
 const mobileNav = document.getElementById('mobile-nav');
@@ -1524,10 +1794,6 @@ mobileNav.querySelectorAll('a').forEach(a=> a.addEventListener('click', ()=> mob
 
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
 
-/* =====================================================================
-   THEME TOGGLE — Preferensi disimpan di browser agar tetap sama setelah
-   halaman dimuat ulang.
-   ===================================================================== */
 const THEME_STORAGE_KEY = 'axg-event-theme';
 function setTheme(mode){
   const nextMode = mode === 'light' ? 'light' : 'dark';
@@ -1553,6 +1819,7 @@ document.getElementById('mobile-theme-toggle').addEventListener('click', ()=>{
   setTheme(current === 'dark' ? 'light' : 'dark');
 });
 setTheme(getSavedTheme());
+
 </script>
 </body>
 </html>
