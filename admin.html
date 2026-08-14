@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha256-yVBhl8r4CaB1tt7h2g02+xnacVj/6KiOewyWxdhiPJk=" crossorigin="anonymous"></script>
+<!-- ExcelJS dipakai untuk menghasilkan file Excel yang RAPI & BERFORMAT
+     (header berwarna, border, freeze pane, autofilter, lebar kolom otomatis).
+     Kalau CDN ini gagal dimuat, ekspor otomatis jatuh kembali ke SheetJS. -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" crossorigin="anonymous"></script>
 <style>
   :root{
     --bg:#FAF9F5;
@@ -181,21 +185,202 @@
   .confirm-box p{color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
   .confirm-box strong{color:var(--ink);}
 
-  .toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:13px 18px;border-radius:9px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:200;display:flex;align-items:center;gap:10px;transform:translateY(20px);opacity:0;transition:all .25s;}
-  .toast.show{transform:translateY(0);opacity:1;}
-  .toast .tick{color:#7CD9A0;}
-
   .group-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gold-deep);background:var(--gold-soft);padding:8px 20px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
   .team-title{font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--surface);padding:7px 20px 7px 34px;border-bottom:1px solid var(--border);}
 
+  /* ==================================================================
+     TOAST / NOTIFIKASI PROFESIONAL
+     Notifikasi bertumpuk di kanan bawah, punya varian sukses / gagal /
+     info / proses, ikon, judul, dan progress bar waktu hidup.
+     ================================================================== */
+  .toast-stack{position:fixed;right:22px;bottom:22px;z-index:600;display:flex;flex-direction:column;gap:10px;align-items:flex-end;pointer-events:none;max-width:min(360px,calc(100vw - 32px));}
+  .toast{
+    pointer-events:auto;position:relative;overflow:hidden;
+    background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--ink-faint);
+    color:var(--ink);padding:13px 15px 14px;border-radius:11px;
+    box-shadow:0 10px 34px rgba(34,31,26,0.16);
+    display:flex;align-items:flex-start;gap:11px;width:100%;
+    transform:translateX(24px) scale(.96);opacity:0;
+    transition:transform .28s cubic-bezier(.2,.8,.3,1),opacity .28s ease;
+  }
+  .toast.show{transform:translateX(0) scale(1);opacity:1;}
+  .toast.leaving{transform:translateX(24px) scale(.96);opacity:0;}
+  .toast-ic{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  .toast-txt{flex:1;min-width:0;}
+  .toast-title{font-size:12.5px;font-weight:700;line-height:1.35;}
+  .toast-msg{font-size:12.5px;color:var(--ink-soft);line-height:1.45;margin-top:2px;word-break:break-word;}
+  .toast-x{background:none;border:none;color:var(--ink-faint);font-size:14px;line-height:1;padding:2px 3px;border-radius:5px;flex-shrink:0;}
+  .toast-x:hover{color:var(--ink);background:var(--surface-alt);}
+  .toast-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;transform-origin:left center;}
+  .toast-success{border-left-color:var(--green);}
+  .toast-success .toast-ic{background:var(--green-soft);color:var(--green);}
+  .toast-success .toast-bar{background:var(--green);}
+  .toast-error{border-left-color:var(--red);}
+  .toast-error .toast-ic{background:var(--red-soft);color:var(--red);}
+  .toast-error .toast-bar{background:var(--red);}
+  .toast-info{border-left-color:var(--gold);}
+  .toast-info .toast-ic{background:var(--gold-soft);color:var(--gold-deep);}
+  .toast-info .toast-bar{background:var(--gold);}
+  @keyframes toastBar{from{transform:scaleX(1);}to{transform:scaleX(0);}}
+
+  /* ==================================================================
+     OVERLAY LOADING GLOBAL
+     Muncul setiap kali ada proses simpan / ubah / hapus ke server.
+     ================================================================== */
+  .loader-overlay{
+    position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;
+    background:rgba(34,31,26,0.34);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  .loader-overlay.show{opacity:1;pointer-events:auto;}
+  .loader-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:22px 26px;display:flex;align-items:center;gap:15px;min-width:250px;max-width:calc(100vw - 40px);
+    box-shadow:0 22px 60px rgba(34,31,26,0.22);
+    transform:translateY(10px) scale(.97);transition:transform .25s cubic-bezier(.2,.8,.3,1);
+  }
+  .loader-overlay.show .loader-card{transform:translateY(0) scale(1);}
+  .loader-ring{width:30px;height:30px;border-radius:50%;flex-shrink:0;border:3px solid var(--gold-soft);border-top-color:var(--gold);animation:spin .75s linear infinite;}
+  .loader-text{font-size:13.5px;font-weight:600;}
+  .loader-sub{font-size:11.5px;color:var(--ink-faint);margin-top:3px;}
+
+  /* Tombol dalam keadaan sibuk */
+  .btn.is-busy,.event-action-btn.is-busy,.icon-btn.is-busy{position:relative;color:transparent !important;pointer-events:none;opacity:.85;}
+  .btn.is-busy::after,.event-action-btn.is-busy::after,.icon-btn.is-busy::after{
+    content:"";position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px 0 0 -7px;
+    border-radius:50%;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;animation:spin .7s linear infinite;
+  }
+  .event-action-btn.is-busy::after,.icon-btn.is-busy::after,.btn-outline.is-busy::after,.btn-ghost.is-busy::after{
+    border-color:var(--gold-soft);border-top-color:var(--gold);
+  }
+  /* Baris yang sedang diproses/dihapus */
+  tr.row-busy{opacity:.45;transition:opacity .2s ease;}
+  @keyframes rowOut{to{opacity:0;transform:translateX(-14px);}}
+  tr.row-removing{animation:rowOut .3s ease forwards;}
+  @keyframes rowIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .anim-in{animation:rowIn .32s ease both;}
+  tr.row-updated{animation:rowFlash 1.5s ease;}
+  @keyframes rowFlash{0%,20%{background:var(--green-soft);}100%{background:transparent;}}
+
+  /* ==================================================================
+     INDIKATOR SINKRONISASI
+     ================================================================== */
+  .sync-chip{
+    display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:99px;
+    border:1px solid var(--border);background:var(--surface);font-size:11.5px;color:var(--ink-soft);
+    font-weight:600;white-space:nowrap;
+  }
+  .sync-chip .sdot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 0 3px var(--green-soft);}
+  .sync-chip.syncing .sdot{background:var(--gold);box-shadow:0 0 0 3px var(--gold-soft);animation:pulse 1s ease infinite;}
+  .sync-chip.offline .sdot{background:var(--red);box-shadow:0 0 0 3px var(--red-soft);}
+  @keyframes pulse{50%{opacity:.35;}}
+  .sync-refresh{border:none;background:none;color:var(--ink-faint);padding:0 0 0 2px;line-height:1;font-size:13px;border-radius:5px;}
+  .sync-refresh:hover{color:var(--gold-deep);}
+  .sync-refresh.spinning{animation:spin .8s linear infinite;}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+
+  /* ==================================================================
+     SKELETON
+     ================================================================== */
+  .sk{background:linear-gradient(90deg,var(--surface-alt) 25%,#FBF9F3 37%,var(--surface-alt) 63%);background-size:400% 100%;animation:skShine 1.3s ease infinite;border-radius:8px;}
+  @keyframes skShine{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+  .sk-row{height:14px;margin:14px 20px;}
+  .sk-stat{height:104px;border-radius:var(--radius);}
+
+  /* Backdrop sidebar mobile */
+  .sidebar-backdrop{position:fixed;inset:0;background:rgba(34,31,26,.4);z-index:35;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .sidebar-backdrop.show{opacity:1;pointer-events:auto;}
+
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+  /* ==================================================================
+     RESPONSIVE
+     ================================================================== */
   @media(max-width:900px){
-    .sidebar{transform:translateX(-100%);box-shadow:0 0 0 2000px rgba(0,0,0,0);}
+    .sidebar{transform:translateX(-100%);box-shadow:none;}
     .sidebar.open{transform:translateX(0);box-shadow:10px 0 40px rgba(0,0,0,0.15);}
     .main{margin-left:0;}
     #hamburger{display:block;}
-    .content{padding:20px 16px 60px;}
-    .topbar{padding:14px 16px;}
+    .content{padding:20px 14px 70px;}
+    .topbar{padding:12px 14px;gap:10px;}
+    .topbar h2{font-size:16px;}
     th,td{padding:11px 12px;}
+    .panel-head{padding:14px 16px;}
+    .toolbar{width:100%;}
+    .search-input{flex:1;min-width:0;}
+    .stat-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;}
+    .stat-card{padding:15px 16px;}
+    .stat-card .num{font-size:25px;}
+  }
+
+  /* Di layar kecil tabel berubah menjadi KARTU agar tidak terpotong. */
+  @media(max-width:780px){
+    .toast-stack{right:12px;left:12px;bottom:12px;max-width:none;align-items:stretch;}
+    .responsive-table thead{display:none;}
+    .responsive-table,.responsive-table tbody,.responsive-table tr,.responsive-table td{display:block;width:100%;}
+    .responsive-table tr{
+      border:1px solid var(--border);border-radius:11px;margin:12px;padding:6px 2px;background:var(--surface);
+      box-shadow:0 1px 2px rgba(34,31,26,.03);
+    }
+    .responsive-table tr.row-hover:hover{background:var(--surface);}
+    .responsive-table td{
+      border:none;padding:8px 14px;display:flex;gap:14px;align-items:flex-start;justify-content:space-between;
+      font-size:13px;
+    }
+    .responsive-table td + td{border-top:1px dashed var(--border);}
+    .responsive-table td::before{
+      content:attr(data-label);flex:0 0 40%;font-size:10.5px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.05em;color:var(--ink-faint);padding-top:2px;
+    }
+    .responsive-table td[data-label=""]::before{content:none;}
+    .responsive-table td > *:not(.row-actions):not(.event-actions){text-align:right;}
+    .responsive-table td.cell-main{flex-direction:column;gap:2px;}
+    .responsive-table td.cell-main::before{flex:none;margin-bottom:2px;}
+    .responsive-table td.cell-main > *{text-align:left;}
+    .responsive-table td.cell-actions{flex-direction:column;gap:8px;}
+    .responsive-table td.cell-actions::before{flex:none;}
+    .responsive-table .event-actions,.responsive-table .row-actions{min-width:0;width:100%;}
+    .responsive-table .event-action-btn{flex:1 1 auto;padding:9px 10px;font-size:11.5px;}
+    .responsive-table .icon-btn{width:38px;height:34px;}
+    .modal-overlay{padding:16px 10px;}
+    .modal-body{max-height:none;padding:18px 16px;}
+    .modal-head,.modal-foot{padding:15px 16px;}
+    .modal-foot{flex-direction:column-reverse;}
+    .modal-foot .btn{width:100%;}
+    .group-title,.team-title{padding-left:14px;padding-right:14px;}
+    .team-title{padding-left:22px;}
+  }
+  /* Di layar sempit topbar ditumpuk agar judul halaman tidak terpotong. */
+  @media(max-width:640px){
+    .topbar{flex-direction:column;align-items:stretch;gap:10px;}
+    .topbar h2{font-size:17px;}
+    .topbar-right{justify-content:space-between;width:100%;}
+    #topbar-action{display:flex;justify-content:flex-end;flex:1;}
+    #topbar-action .btn{white-space:nowrap;}
+  }
+  @media(max-width:420px){
+    .topbar-right .sync-chip .sync-label{display:none;}
+    .content{padding:16px 10px 70px;}
+    .responsive-table tr{margin:10px;}
+    #topbar-action{flex-wrap:wrap;}
+  }
+  /* ================= KOMPONEN v2 ================= */
+  .opt{font-weight:500;color:var(--ink-faint);text-transform:none;letter-spacing:0;font-size:11px;}
+  .hint{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.5;}
+  .hint b{color:var(--ink-soft);}
+  .hint-block{background:var(--surface-alt);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:0;}
+  .modal-context{font-size:12.5px;font-weight:700;color:var(--gold-deep);background:var(--gold-soft);border-radius:8px;padding:9px 12px;margin-bottom:14px;}
+  .switch-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface-alt);font-size:13px;font-weight:600;cursor:pointer;}
+  .switch-row input{width:17px;height:17px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;}
+  .sub-bar{display:flex;flex-wrap:wrap;gap:8px 22px;padding:11px 20px;border-bottom:1px solid var(--border);background:var(--surface-alt);font-size:12.5px;color:var(--ink-soft);}
+  .sub-bar b{color:var(--ink);}
+  .chip-list{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:600;background:var(--gold-soft);color:var(--gold-deep);border:1px solid var(--border);}
+  .chip i{font-style:normal;font-weight:500;color:var(--ink-faint);}
+  .chip-muted{background:var(--surface-alt);color:var(--ink-faint);}
+  @media(max-width:780px){
+    .sub-bar{padding:11px 14px;}
+    .responsive-table td .chip-list{justify-content:flex-end;}
   }
 </style>
 </head>
@@ -243,6 +428,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="18" cy="8" r="2.6"/><path d="M16 14.2c2.8.3 5 2.6 5 5.8"/></svg>
         Kelola Peserta
       </div>
+      <div class="nav-item" data-nav="directory" onclick="showPage('directory')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19.5" cy="18" r="2"/></svg>
+        Siapa Ikut Apa
+      </div>
     </nav>
     <div class="sidebar-foot">
       <div class="admin-chip">
@@ -260,93 +449,137 @@
 
   <div class="main">
     <div class="topbar">
-      <div style="display:flex;align-items:center;">
-        <button id="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
-        <div>
+      <div style="display:flex;align-items:center;min-width:0;">
+        <button id="hamburger" onclick="toggleSidebar()" aria-label="Buka menu">☰</button>
+        <div style="min-width:0;">
           <div class="crumb" id="page-crumb">AXG EVENT / Admin</div>
           <h2 id="page-title">Dashboard</h2>
         </div>
       </div>
-      <div id="topbar-action"></div>
+      <div class="topbar-right">
+        <div class="sync-chip" id="sync-chip" title="Status sinkronisasi dengan Google Spreadsheet">
+          <span class="sdot"></span>
+          <span class="sync-label" id="sync-label">Menyambungkan…</span>
+          <button class="sync-refresh" id="sync-refresh" onclick="manualRefresh()" title="Muat ulang data sekarang" aria-label="Muat ulang data">⟳</button>
+        </div>
+        <div id="topbar-action"></div>
+      </div>
     </div>
     <div class="content" id="content"></div>
   </div>
 </div>
 
 <!-- ======================= MODALS ======================= -->
-<div class="modal-overlay hidden" id="modal-event">
+<div class="modal-overlay hidden" id="modal-event" data-type="individu">
   <div class="modal">
     <div class="modal-head">
       <h3 id="event-modal-title">Buat Event Baru</h3>
       <button class="modal-close" onclick="closeModal('modal-event')">✕</button>
     </div>
     <div class="modal-body">
+      <div class="section-label">Identitas Lomba</div>
       <div class="grid-2">
-        <div class="field"><label>Nama Event</label><input id="f-name" placeholder="misal: HUT Kemerdekaan RI KE-81"></div>
-        <div class="field"><label>Tanggal</label><input id="f-date" type="date"></div>
+        <div class="field"><label>Nama Lomba / Event <span style="color:var(--red)">*</span></label><input id="f-name" placeholder="misal: Balap Karung"></div>
+        <div class="field"><label>Tanggal <span style="color:var(--red)">*</span></label><input id="f-date" type="date"></div>
       </div>
       <div class="grid-2">
-        <div class="field"><label>Prefix Nomor Pendaftaran</label><input id="f-prefix" maxlength="8" placeholder="misal: AXG"></div>
-        <div class="field"><label>Emoji / Ikon</label><input id="f-flag" placeholder="misal: 🇮🇩"></div>
+        <div class="field">
+          <label>Nama Acara <span class="opt">opsional</span></label>
+          <input id="f-group" maxlength="60" placeholder="misal: HUT RI KE-81">
+          <div class="hint">Kartu dengan nama acara yang sama akan dikelompokkan di halaman publik. Kosongkan bila lomba ini berdiri sendiri.</div>
+        </div>
+        <div class="field">
+          <label>Prefix Nomor Pendaftaran</label>
+          <input id="f-prefix" maxlength="8" placeholder="otomatis dari nama">
+          <div class="hint">Contoh hasil: <b class="mono">BALAP-0001</b>.</div>
+        </div>
       </div>
-      <div class="field"><label>Tagline</label><input id="f-tagline" placeholder="Ringkasan singkat untuk kartu event"></div>
-      <div class="field"><label>Deskripsi</label><textarea id="f-desc" rows="2" placeholder="Deskripsi lengkap event"></textarea></div>
       <div class="grid-2">
-        <div class="field"><label>Tempat / Lokasi Acara</label><input id="f-location" placeholder="misal: Mess 96 – Area Dapur Lantai 1"></div>
-        <div class="field"><label>Link Foto Event</label><input id="f-photo" placeholder="https://..."></div>
+        <div class="field"><label>Emoji / Ikon <span class="opt">opsional</span></label><input id="f-flag" placeholder="misal: 🇮🇩"></div>
+        <div class="field"><label>Tagline <span class="opt">opsional</span></label><input id="f-tagline" placeholder="Ringkasan singkat untuk kartu"></div>
+      </div>
+      <div class="field"><label>Deskripsi</label><textarea id="f-desc" rows="2" placeholder="Penjelasan lengkap lomba"></textarea></div>
+      <div class="grid-2">
+        <div class="field"><label>Tempat / Lokasi <span style="color:var(--red)">*</span></label><input id="f-location" placeholder="misal: Mess 96 – Halaman Depan"></div>
+        <div class="field"><label>Link Foto <span class="opt">opsional</span></label><input id="f-photo" placeholder="https://..."></div>
       </div>
 
-      <div class="section-label">Mode Event</div>
+      <div class="section-label">Tipe Peserta</div>
       <div class="mode-toggle">
-        <div class="mode-opt active" id="mode-a-opt" onclick="setMode('A')">
-          <div class="t">Tanpa Kategori</div>
-          <div class="d">Contoh: Makan Bersama — cukup 1 kapasitas untuk semua</div>
+        <div class="mode-opt active" id="type-individu" onclick="setEventType('individu')">
+          <div class="t">Individu</div>
+          <div class="d">Peserta mendaftar atas nama sendiri. Contoh: Catur, Lomba Makan Kerupuk.</div>
         </div>
-        <div class="mode-opt" id="mode-b-opt" onclick="setMode('B')">
-          <div class="t">Dengan Kategori</div>
-          <div class="d">Contoh: Lomba 17 Agustus — banyak cabang lomba</div>
+        <div class="mode-opt" id="type-tim" onclick="setEventType('tim')">
+          <div class="t">Tim / Beregu</div>
+          <div class="d">Peserta memilih atau membuat tim. Contoh: Ludo Team, Gaple, Tarik Tambang.</div>
         </div>
       </div>
 
-      <!-- MODE A FIELDS -->
-      <div id="mode-a-fields">
-        <div class="section-label">Detail Event (Mode Tanpa Kategori)</div>
-        <div class="field"><label>Kapasitas <span style="color:var(--red)">*wajib</span></label><input id="f-cap-a" type="number" min="1" placeholder="misal: 30"></div>
-        <div class="field"><label>Aturan Main</label><textarea id="f-rules-a" rows="2" placeholder="Aturan main event"></textarea></div>
-        <label style="font-size:12.5px;font-weight:600;color:var(--ink-soft);">Rincian Hadiah</label>
-        <div class="prize-row"><label>Juara 1</label><input id="f-prize-a1" placeholder="misal: Rp 500.000"></div>
-        <div class="prize-row"><label>Juara 2</label><input id="f-prize-a2" placeholder="misal: Rp 300.000"></div>
-        <div class="prize-row"><label>Juara 3</label><input id="f-prize-a3" placeholder="misal: Rp 150.000"></div>
-        <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);">
-          <span>Field Pendaftaran Tambahan</span>
-          <button class="btn btn-outline btn-sm" type="button" onclick="addExtraFieldBlock()">+ Tambah Field</button>
+      <div class="hidden" id="team-settings">
+        <div class="grid-2">
+          <div class="field">
+            <label>Anggota per Tim</label>
+            <select id="f-teamsize-mode" onchange="toggleTeamSizeInput()">
+              <option value="fixed">Tetap — isi jumlahnya</option>
+              <option value="free">Bebas</option>
+            </select>
+            <input id="f-teamsize-num" type="number" min="1" placeholder="misal: 2" style="margin-top:8px;">
+          </div>
+          <div class="field">
+            <div class="hint hint-block">Kalau diisi <b>2</b>, sistem otomatis menolak orang ketiga yang mencoba bergabung ke tim yang sama.</div>
+          </div>
         </div>
-        <div id="extra-field-list"></div>
       </div>
 
-      <!-- MODE B FIELDS -->
-      <div id="mode-b-fields" class="hidden">
-        <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);">
-          <span>Kategori Lomba</span>
-          <button class="btn btn-outline btn-sm" onclick="addCategoryBlock()">+ Tambah Kategori</button>
+      <div class="grid-2">
+        <div class="field">
+          <label><span id="cap-label">Jumlah Peserta</span> <span style="color:var(--red)">*</span></label>
+          <input id="f-cap" type="number" min="1" placeholder="misal: 20">
+          <div class="hint" id="cap-hint">Berapa orang yang boleh mendaftar di lomba ini.</div>
         </div>
-        <div id="category-list"></div>
+        <div class="field"><label>Aturan Main</label><textarea id="f-rules" rows="3" placeholder="Aturan main lomba ini"></textarea></div>
       </div>
+
+      <div class="section-label">Hadiah <span class="opt">opsional</span></div>
+      <div class="prize-row"><label>Juara 1</label><input id="f-prize1" placeholder="misal: Rp 300.000"></div>
+      <div class="prize-row"><label>Juara 2</label><input id="f-prize2" placeholder="misal: Rp 200.000"></div>
+      <div class="prize-row"><label>Juara 3</label><input id="f-prize3" placeholder="misal: Rp 100.000"></div>
+      <label class="switch-row">
+        <input type="checkbox" id="f-show-prizes" checked>
+        <span>Tampilkan hadiah di halaman publik</span>
+      </label>
+
+      <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Field Pendaftaran Tambahan <span class="opt">opsional</span></span>
+        <button class="btn btn-outline btn-sm" type="button" onclick="addExtraFieldBlock()">+ Tambah Field</button>
+      </div>
+      <div id="extra-field-list"></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeModal('modal-event')">Batal</button>
-      <button class="btn btn-gold" onclick="saveEvent()">Simpan Event</button>
+      <button class="btn btn-gold" id="btn-save-event" onclick="saveEvent()">Simpan Event</button>
     </div>
   </div>
 </div>
 
 <div class="modal-overlay hidden" id="modal-result">
   <div class="modal modal-sm">
-    <div class="modal-head"><h3>Isi Hasil / Pemenang</h3><button class="modal-close" onclick="closeModal('modal-result')">✕</button></div>
-    <div class="modal-body" id="result-body"></div>
+    <div class="modal-head"><h3>Pemenang Lomba</h3><button class="modal-close" onclick="closeModal('modal-result')">✕</button></div>
+    <div class="modal-body">
+      <div class="modal-context" id="result-event-name"></div>
+      <div class="hint hint-block" id="result-hint">Isi nama pemenang. Kosongkan yang tidak dipakai.</div>
+      <div class="field"><label>Juara 1</label><input id="res-1" placeholder="Nama pemenang"></div>
+      <div class="field"><label>Juara 2</label><input id="res-2" placeholder="Nama pemenang"></div>
+      <div class="field"><label>Juara 3</label><input id="res-3" placeholder="Nama pemenang"></div>
+      <label class="switch-row">
+        <input type="checkbox" id="f-show-results" checked>
+        <span>Tampilkan pemenang di halaman publik</span>
+      </label>
+    </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeModal('modal-result')">Batal</button>
-      <button class="btn btn-gold" onclick="saveResult()">Simpan Hasil</button>
+      <button class="btn btn-gold" id="btn-save-result" onclick="saveResult()">Simpan Pemenang</button>
     </div>
   </div>
 </div>
@@ -369,73 +602,61 @@
   <div class="modal modal-sm">
     <div class="modal-head"><h3>Edit Peserta</h3><button class="modal-close" onclick="closeModal('modal-edit-participant')">✕</button></div>
     <div class="modal-body">
+      <div class="modal-context" id="ep-event-name"></div>
       <div class="field"><label>Nama</label><input id="ep-name"></div>
       <div class="field"><label>Divisi</label><input id="ep-divisi"></div>
       <div class="field"><label>Telegram</label><input id="ep-telegram"></div>
-      <div class="field hidden" id="ep-category-wrap"><label>Kategori</label><select id="ep-category" onchange="onEditCategoryChange()"></select></div>
-      <div class="field hidden" id="ep-team-wrap"><label>Nama Team</label><input id="ep-team" placeholder="misal: Team Garuda"></div>
+      <div class="field hidden" id="ep-team-wrap"><label>Nama Tim</label><input id="ep-team" placeholder="misal: Team Garuda"></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeModal('modal-edit-participant')">Batal</button>
-      <button class="btn btn-gold" onclick="savePartticipantEdit()">Simpan</button>
+      <button class="btn btn-gold" id="btn-save-participant" onclick="savePartticipantEdit()">Simpan Perubahan</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"><span class="tick">✓</span><span id="toast-msg">Berhasil disimpan</span></div>
+<!-- Overlay loading global: tampil pada setiap proses simpan / ubah / hapus -->
+<div class="loader-overlay" id="loader-overlay" role="status" aria-live="polite" aria-hidden="true">
+  <div class="loader-card">
+    <div class="loader-ring"></div>
+    <div>
+      <div class="loader-text" id="loader-text">Memproses…</div>
+      <div class="loader-sub" id="loader-sub">Menyimpan ke Google Spreadsheet</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tempat notifikasi bertumpuk -->
+<div class="toast-stack" id="toast-stack" role="status" aria-live="polite"></div>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
 
 <script>
-/* ============ CANONICAL DATA + GOOGLE APPS SCRIPT ============
-   Isi API_URL dengan URL deployment /exec yang sama dengan halaman Public.
-   Data dummy di bawah hanya fallback preview selama API belum dikonfigurasi. */
+/* =====================================================================
+   AXG EVENT — PANEL ADMIN (v2, tanpa kategori)
+   Satu lomba = satu event = satu kartu. Setiap event bertipe Individu
+   atau Tim. Isi API_URL dengan URL /exec yang sama dengan halaman publik.
+   Data di bawah hanya dipakai sebagai preview sebelum API dikonfigurasi.
+   ===================================================================== */
 const AXG_CONFIG = Object.freeze({
   API_URL: 'https://script.google.com/macros/s/AKfycbxyfojAmRcT8K1l53QLZKoQ3ptVYk0OneEPtyA3zXgNbBcQFcvCJSmgb6X4ZP2luNj9lg/exec',
   ENABLE_MOCK_FALLBACK: true
 });
 
-let events = [
-  {
-    id:'1', slug:'hut-kemerdekaan-ri-ke-81-axg', name:'HUT Kemerdekaan RI KE-81 AXG', flagEmoji:'🇮🇩',
-    tagline:'Rangkaian lomba kemerdekaan untuk seluruh karyawan AXG.',
-    description:'Rangkaian lomba memperingati Hari Kemerdekaan Republik Indonesia. Terbuka untuk seluruh karyawan AXG — silakan pilih kategori individu atau bentuk tim bersama pasangan sendiri.',
-    date:'2026-08-17', location:'Mess 96 – Area Dapur Lantai 1', image:'https://i.postimg.cc/4y4sYvCQ/event-foto-axg.jpg', mode:'B', active:true,
-    categories:[
-      {id:'ludo', name:'Ludo Team', type:'tim', capacity:10, teamSize:2, rules:'Satu tim terdiri dari 2 orang. Peserta bebas memilih pasangan atau nama tim sendiri.', prizes:[], results:null},
-      {id:'congklak', name:'Congklak Individu', type:'individu', capacity:20, rules:'Peserta bermain secara individu.', prizes:[], results:null},
-      {id:'catur', name:'Catur Individu', type:'individu', capacity:16, rules:'Peserta bermain secara individu.', prizes:[], results:null},
-      {id:'gaple', name:'Gaple Team', type:'tim', capacity:8, teamSize:2, rules:'Satu tim terdiri dari 2 orang. Peserta bebas memilih pasangan atau nama tim sendiri.', prizes:[], results:null},
-      {id:'poker', name:'Poker Individu', type:'individu', capacity:12, rules:'Peserta bermain secara individu.', prizes:[], results:null},
-      {id:'lomba-makan', name:'Lomba Makan', type:'individu', capacity:20, rules:'Peserta bermain secara individu.', prizes:[], results:null}
-    ],
-    results:null
-  },
-  { id:2, name:'Makan Bersama Divisi IT', desc:'Makan siang bersama seluruh tim IT.', date:'2026-09-05', location:'Kantin Lt. 2', mode:'A', active:false, capacity:30, results:{} },
-];
+/* Daftar event dikosongkan: seluruh data diambil langsung dari Google
+   Apps Script setelah Admin berhasil login. */
+let events = [];
 
-let participants = {
-  1: [
-    {id:'AXG-0001', name:'Budi Santoso', divisi:'IT', telegram:'budisan', category:'Congklak Individu', team:null},
-    {id:'AXG-0002', name:'Andi Wijaya', divisi:'HRD', telegram:'andiw', category:'Congklak Individu', team:null},
-    {id:'AXG-0003', name:'Sinta Marlina', divisi:'Finance', telegram:'sintam', category:'Ludo Team', team:'Team Smit'},
-    {id:'AXG-0004', name:'Rudi Hartono', divisi:'Marketing', telegram:'rudih', category:'Ludo Team', team:'Team Smit'},
-    {id:'AXG-0005', name:'Dewi Anggraini', divisi:'IT', telegram:'dewia', category:'Catur Individu', team:null},
-    {id:'AXG-0006', name:'Yusuf Pratama', divisi:'GA', telegram:'yusufp', category:'Gaple Team', team:'Team Mosiongto'},
-    {id:'AXG-0007', name:'Nadia Putri', divisi:'HRD', telegram:'nadiap', category:'Gaple Team', team:'Team Mosiongto'},
-  ],
-  2: [
-    {id:'AXG-0008', name:'Fajar Ramadhan', divisi:'IT', telegram:'fajarr', category:null, team:null},
-    {id:'AXG-0009', name:'Lestari Wulan', divisi:'IT', telegram:'lestariw', category:null, team:null},
-  ]
-};
-
+let participants = {};
 let adminToken = '';
 const ADMIN_SESSION_KEY = 'axg-event-admin-session';
 const ADMIN_SESSION_MAX_AGE = 12 * 60 * 60 * 1000;
 
+/* =====================================================================
+   SESI ADMIN
+   ===================================================================== */
 function saveAdminSession(token){
-  try{
-    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({token, createdAt:Date.now()}));
-  }catch(error){}
+  try{ localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({token, createdAt:Date.now()})); }catch(error){}
 }
 function getAdminSession(){
   try{
@@ -445,9 +666,7 @@ function getAdminSession(){
       return null;
     }
     return session;
-  }catch(error){
-    return null;
-  }
+  }catch(error){ return null; }
 }
 function clearAdminSession(){
   try{ localStorage.removeItem(ADMIN_SESSION_KEY); }catch(error){}
@@ -457,6 +676,9 @@ function apiIsConfigured(){
   return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?|$)/.test(AXG_CONFIG.API_URL);
 }
 
+/* =====================================================================
+   HELPER DASAR
+   ===================================================================== */
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function normalizeText(value){ return String(value||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function normalizePrefix(value){ return String(value||'AXG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'AXG'; }
@@ -465,8 +687,19 @@ function slugify(value){
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 }
 function escapeHtml(value){
-  return String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  return String(value==null?'':value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
+function formatDate(value){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))) return value || '-';
+  return new Date(`${value}T00:00:00`).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+}
+function formatStamp(value){
+  if(!value) return '';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
 function normalizePrizes(prizes){
   if(!Array.isArray(prizes)) return [];
   return prizes.map((item,index)=> typeof item === 'string'
@@ -474,118 +707,96 @@ function normalizePrizes(prizes){
     : {label:item?.label || `Juara ${index+1}`,value:item?.value || ''}
   ).filter(item=>item.value);
 }
-function normalizeResults(results, prizes){
+function normalizeResults(results){
   if(!results) return null;
-  if(Array.isArray(results)) return results;
-  const source = results._ || results;
-  const list = [1,2,3].map((position,index)=>{
-    const nama = source[position] || source[String(position)] || '';
-    return nama ? {posisi:`Juara ${position}`,nama,hadiah:prizes[index]?.value || ''} : null;
-  }).filter(Boolean);
-  return list.length ? list : null;
+  let list = results;
+  if(!Array.isArray(results)){
+    const source = results._ || results;
+    list = [1,2,3].map(position=>{
+      const nama = source[position] || source[String(position)] || '';
+      return nama ? {posisi:`Juara ${position}`,nama,hadiah:''} : null;
+    }).filter(Boolean);
+  }
+  const cleaned = list.map((item,index)=>({
+    posisi:item?.posisi || `Juara ${index+1}`,
+    nama:item?.nama || '',
+    hadiah:item?.hadiah || ''
+  })).filter(item=>item.nama);
+  return cleaned.length ? cleaned : null;
 }
-function normalizeParticipant(participant,index,eventId,category){
+function toBool(value, fallback){
+  if(value === undefined || value === null || value === '') return fallback;
+  return value === true || value === 1 || String(value).toLowerCase() === 'true';
+}
+
+function normalizeParticipant(participant, index, eventId){
   return {
     id:String(participant.id || participant.registrationNumber || uid()),
-    registrationNumber:participant.registrationNumber || (String(participant.id||'').startsWith('AXG-') ? participant.id : ''),
+    registrationNumber:participant.registrationNumber || '',
     no:Number(participant.no || index+1),
     eventId:String(participant.eventId || eventId || ''),
-    categoryId:String(participant.categoryId || category?.id || ''),
-    category:participant.category || category?.name || null,
     name:participant.name || '',
     divisi:participant.divisi || participant.division || '',
     telegram:String(participant.telegram || '').replace(/^@+/,''),
-    team:participant.team || null,
-    extra:participant.extra || {}
+    team:participant.team || '',
+    extra:participant.extra || {},
+    createdAt:participant.createdAt || '',
+    updatedAt:participant.updatedAt || ''
   };
 }
-function normalizeCategory(category,eventId,index){
-  const prizes = normalizePrizes(category.prizes);
-  return {
-    ...category,
-    id:String(category.id || `${eventId}-category-${index+1}`),
-    name:category.name || `Kategori ${index+1}`,
-    type:category.type === 'tim' ? 'tim' : 'individu',
-    capacity:Number(category.capacity || 0),
-    teamSize:category.teamSize === 'bebas' || category.teamSize === 'free' || !category.teamSize ? 'bebas' : Number(category.teamSize),
-    rules:category.rules || '',
-    prizes,
-    results:normalizeResults(category.results,prizes),
-    participants:(category.participants || []).map((p,pIndex)=>normalizeParticipant(p,pIndex,eventId,category))
-  };
-}
-function normalizeEvent(event,index){
+
+function normalizeEvent(event, index){
   const id = String(event.id || event.slug || `event-${index+1}`);
-  const prizes = normalizePrizes(event.prizes);
-  const mode = String(event.mode || 'A').toUpperCase() === 'B' ? 'B' : 'A';
+  const type = String(event.type || '').toLowerCase() === 'tim' ? 'tim' : 'individu';
+  const teamSize = event.teamSize === 'bebas' || event.teamSize === 'free' || !event.teamSize ? 'bebas' : Number(event.teamSize);
   return {
-    ...event,
     id,
     slug:event.slug || slugify(event.name) || id,
     name:event.name || '',
     flagEmoji:event.flagEmoji || '',
-    tagline:event.tagline || event.description || event.desc || '',
+    tagline:event.tagline || event.description || '',
     description:event.description || event.desc || '',
     date:event.date || '',
     location:event.location || '',
-    image:event.image || event.photo || '',
-    mode,
+    image:event.image || '',
+    type,
+    teamSize,
     prefix:normalizePrefix(event.prefix),
-    active:event.active === true || String(event.active).toLowerCase() === 'true',
+    active:toBool(event.active, false),
     capacity:Number(event.capacity || 0),
     rules:event.rules || '',
-    prizes,
-    results:normalizeResults(event.results,prizes),
+    prizes:normalizePrizes(event.prizes),
+    showPrizes:toBool(event.showPrizes, true),
+    results:normalizeResults(event.results),
+    showResults:toBool(event.showResults, true),
     extraFields:Array.isArray(event.extraFields) ? event.extraFields : [],
-    participants:mode === 'A' ? (event.participants || []).map((p,pIndex)=>normalizeParticipant(p,pIndex,id,null)) : [],
-    categories:mode === 'B' ? (event.categories || []).map((c,cIndex)=>normalizeCategory(c,id,cIndex)) : []
+    eventGroup:event.eventGroup || '',
+    sortOrder:Number(event.sortOrder || 0),
+    participants:(event.participants || []).map((p,i)=>normalizeParticipant(p,i,id))
   };
+}
+
+function indexParticipants(){
+  participants = {};
+  events.forEach(event=>{ participants[event.id] = event.participants; });
 }
 
 function applyCanonicalEvents(rawEvents){
   events = (rawEvents || []).map(normalizeEvent);
-  participants = {};
-  events.forEach(event=>{
-    if(event.mode === 'A') participants[event.id] = event.participants.map((p,index)=>normalizeParticipant(p,index,event.id,null));
-    else participants[event.id] = event.categories.flatMap(category=>
-      category.participants.map((p,index)=>normalizeParticipant(p,index,event.id,category))
-    );
-  });
+  indexParticipants();
 }
 
-function applyMockState(){
-  events = events.map(normalizeEvent);
-  const original = participants;
-  participants = {};
-  events.forEach(event=>{
-    const list = (original[event.id] || original[Number(event.id)] || []).map((p,index)=>{
-      const category = event.mode === 'B' ? event.categories.find(c=>normalizeText(c.name)===normalizeText(p.category)) : null;
-      return normalizeParticipant(p,index,event.id,category);
-    });
-    participants[event.id] = list;
-    syncNestedParticipants(event.id);
-  });
-}
-
-function syncNestedParticipants(eventId){
-  const event = events.find(item=>item.id===String(eventId));
-  if(!event) return;
-  const list = participants[event.id] || [];
-  if(event.mode === 'A') event.participants = list.map((p,index)=>normalizeParticipant(p,index,event.id,null));
-  else event.categories.forEach(category=>{
-    category.participants = list.filter(p=>p.categoryId===category.id || normalizeText(p.category)===normalizeText(category.name))
-      .map((p,index)=>normalizeParticipant(p,index,event.id,category));
-  });
-}
-
+/* =====================================================================
+   API
+   ===================================================================== */
 const AxgApi = {
-  async request(action,data={}){
+  async request(action, data={}){
     if(!apiIsConfigured()) throw new Error('Google Apps Script API belum dikonfigurasi.');
     const response = await fetch(AXG_CONFIG.API_URL, {
       method:'POST',
       redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action,adminToken,...data})
+      body:JSON.stringify({action, adminToken, ...data})
     });
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
@@ -597,9 +808,11 @@ const AxgApi = {
     return payload.data;
   },
   authenticate(){ return this.request('authenticate'); },
+  getVersion(){ return this.request('getVersion'); },
   getEvents(){ return this.request('getEvents',{scope:'admin'}); },
   saveEvent(data){ return this.request('saveEvent',{data}); },
   deleteEvent(id){ return this.request('deleteEvent',{id}); },
+  duplicateEvent(id){ return this.request('duplicateEvent',{id}); },
   updateParticipant(data){ return this.request('updateParticipant',{data}); },
   deleteParticipant(id){ return this.request('deleteParticipant',{id}); },
   saveResult(data){ return this.request('saveResult',{data}); }
@@ -620,20 +833,21 @@ async function persistEvent(event){
     await reloadAdminData();
   } else {
     if(!AXG_CONFIG.ENABLE_MOCK_FALLBACK) throw new Error('Google Apps Script API belum dikonfigurasi.');
-    syncNestedParticipants(event.id);
+    indexParticipants();
   }
 }
 
-applyMockState();
+events = events.map(normalizeEvent);
+indexParticipants();
 
-let currentMode = 'A';
-let catCounter = 0;
-let extraFieldCounter = 0;
 let editingEventId = null;
-let currentParticipantsEventId = events[0]?.id || '';
 let editingParticipantId = null;
+let extraFieldCounter = 0;
+let currentParticipantsEventId = events[0]?.id || '';
 
-/* ============ LOGIN ============ */
+/* =====================================================================
+   LOGIN
+   ===================================================================== */
 function togglePasswordVisibility(){
   const input = document.getElementById('pw');
   const btn = document.getElementById('toggle-pw');
@@ -664,13 +878,16 @@ async function doLogin(){
   adminToken = pw;
   setLoginLoading(true);
   try{
-    // getEvents dengan scope Admin sekaligus memvalidasi token dan memuat data.
     await reloadAdminData();
     saveAdminSession(adminToken);
     document.getElementById('view-login').style.display = 'none';
     document.getElementById('view-shell').classList.add('active');
     showPage('dashboard');
-    if(!apiIsConfigured()) setTimeout(()=>toast('Mode preview — Google Apps Script belum dikonfigurasi'),100);
+    startAutoSync();
+    setTimeout(()=>{
+      if(apiIsConfigured()) toastSuccess('Data tersambung ke Google Spreadsheet.','Selamat datang, Admin AXG');
+      else toastInfo('Mode preview — Google Apps Script belum dikonfigurasi.');
+    },120);
   } catch(error){
     adminToken = '';
     clearAdminSession();
@@ -680,24 +897,34 @@ async function doLogin(){
     setLoginLoading(false);
   }
 }
+
 function doLogout(){
   adminToken = '';
   clearAdminSession();
+  stopAutoSync();
+  toggleSidebar(false);
   document.getElementById('view-shell').classList.remove('active');
   document.getElementById('view-login').style.display = 'flex';
   document.getElementById('pw').value = '';
   document.getElementById('pw-err').style.display = 'none';
 }
 
-/* Sesi hanya dihapus kalau server memang MENOLAK token (mis. password salah).
-   Kalau errornya jaringan/timeout/Apps Script lagi lambat, sesi TETAP disimpan
-   supaya user tidak perlu login ulang setiap refresh gara-gara koneksi lambat. */
+/* Sesi hanya dihapus kalau server memang MENOLAK token. Kalau errornya
+   jaringan/timeout, sesi tetap disimpan supaya tidak perlu login ulang. */
 function isAuthRejectionError(error){
   return ['UNAUTHORIZED','AUTH_FAILED','INVALID_TOKEN','FORBIDDEN'].includes(String(error?.code || '').toUpperCase());
 }
 
 function adminLoadingHtml(){
-  return `<div class="empty-state"><div class="em-mark">⏳</div><h4>Memuat data admin…</h4><p>Menyambungkan ke Google Apps Script.</p></div>`;
+  return `
+    <div class="stat-grid">
+      <div class="sk sk-stat"></div><div class="sk sk-stat"></div><div class="sk sk-stat"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="sk" style="height:16px;width:150px;"></div></div>
+      ${Array.from({length:5}).map((_,i)=>`<div class="sk sk-row" style="width:${85 - i*7}%"></div>`).join('')}
+      <div style="height:10px"></div>
+    </div>`;
 }
 function adminLoadErrorHtml(message){
   return `<div class="empty-state"><div class="em-mark">⚠️</div><h4>Data terbaru belum tersambung</h4><p>${escapeHtml(message||'Sesi Anda tetap aktif; silakan coba lagi.')}</p><button class="btn btn-outline btn-sm" onclick="restoreAdminSession()">Coba Lagi</button></div>`;
@@ -707,110 +934,369 @@ async function restoreAdminSession(){
   const session = getAdminSession();
   if(!session) return;
   adminToken = session.token;
-  // Jangan tahan pengguna di layar login hanya karena Apps Script sedang cold-start.
   document.getElementById('view-login').style.display = 'none';
   document.getElementById('view-shell').classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === 'dashboard'));
   document.getElementById('page-title').textContent = 'Dashboard';
   document.getElementById('topbar-action').innerHTML = '';
-  /* Tampilkan status memuat dulu -- JANGAN render dashboard dengan data
-     dummy/mock sampai data asli berhasil diambil dari server, supaya tidak
-     terlihat seolah-olah itu data peserta sungguhan. */
   document.getElementById('content').innerHTML = adminLoadingHtml();
   try{
     await reloadAdminData();
     saveAdminSession(adminToken);
     showPage('dashboard');
+    startAutoSync();
   }catch(error){
     if(isAuthRejectionError(error)){
-      // Token memang ditolak server -> baru hapus sesi & minta login ulang.
       adminToken = '';
       clearAdminSession();
       doLogout();
     } else {
-      // Kemungkinan besar cuma jaringan/Apps Script lambat -> sesi tetap aktif,
-      // tapi tampilkan status gagal-muat (bukan dashboard dengan data dummy).
       document.getElementById('content').innerHTML = adminLoadErrorHtml(error.message);
     }
   }
 }
 
-/* ============ NAV / ROUTER ============ */
+/* =====================================================================
+   LAPISAN UX: NOTIFIKASI, LOADING, AKSI TERBUNGKUS
+   Semua aksi tulis (simpan / ubah / hapus) WAJIB lewat runAction() agar
+   selalu mendapat overlay loading -> notifikasi berhasil/gagal.
+   ===================================================================== */
+const TOAST_ICONS = { success:'✓', error:'!', info:'i' };
+const TOAST_TITLES = { success:'Berhasil', error:'Gagal', info:'Informasi' };
+
+function toast(message, variant, title){
+  const type = ['success','error','info'].includes(variant) ? variant : 'success';
+  const stack = document.getElementById('toast-stack');
+  if(!stack) return;
+  while(stack.children.length >= 4) stack.firstElementChild.remove();
+  const life = type === 'error' ? 5200 : 3200;
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `
+    <span class="toast-ic">${TOAST_ICONS[type]}</span>
+    <div class="toast-txt">
+      <div class="toast-title">${escapeHtml(title || TOAST_TITLES[type])}</div>
+      <div class="toast-msg">${escapeHtml(message)}</div>
+    </div>
+    <button class="toast-x" aria-label="Tutup notifikasi">✕</button>
+    <span class="toast-bar" style="animation:toastBar ${life}ms linear forwards"></span>`;
+  stack.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  let timer = setTimeout(dismiss, life);
+  function dismiss(){
+    clearTimeout(timer);
+    el.classList.add('leaving');
+    setTimeout(()=>el.remove(), 300);
+  }
+  el.querySelector('.toast-x').onclick = dismiss;
+  el.onmouseenter = ()=>{ clearTimeout(timer); el.querySelector('.toast-bar').style.animationPlayState='paused'; };
+  el.onmouseleave = ()=>{ timer = setTimeout(dismiss, 1200); el.querySelector('.toast-bar').style.animationPlayState='running'; };
+}
+const toastSuccess = (message,title)=>toast(message,'success',title);
+const toastError   = (message,title)=>toast(message,'error',title);
+const toastInfo    = (message,title)=>toast(message,'info',title);
+
+let loaderDepth = 0;
+function showLoader(text, sub){
+  loaderDepth += 1;
+  const overlay = document.getElementById('loader-overlay');
+  document.getElementById('loader-text').textContent = text || 'Memproses…';
+  document.getElementById('loader-sub').textContent = sub || (apiIsConfigured() ? 'Menyimpan ke Google Spreadsheet' : 'Mode preview — perubahan lokal');
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden','false');
+}
+function hideLoader(force){
+  loaderDepth = force ? 0 : Math.max(0, loaderDepth - 1);
+  if(loaderDepth === 0){
+    const overlay = document.getElementById('loader-overlay');
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden','true');
+  }
+}
+function setBusy(element, busy){
+  if(!element) return;
+  element.classList.toggle('is-busy', !!busy);
+  if('disabled' in element) element.disabled = !!busy;
+}
+
+async function runAction(options){
+  const {
+    loadingText = 'Memproses…', loadingSub,
+    successText = 'Perubahan berhasil disimpan.', successTitle,
+    button = null, row = null, task
+  } = options || {};
+  showLoader(loadingText, loadingSub);
+  setBusy(button, true);
+  if(row) row.classList.add('row-busy');
+  try{
+    const result = await task();
+    markSynced();
+    toastSuccess(apiIsConfigured() ? successText : `${successText} (mode preview)`, successTitle);
+    return { ok:true, result };
+  }catch(error){
+    console.error(error);
+    toastError(error && error.message ? error.message : 'Terjadi kesalahan. Silakan coba lagi.');
+    return { ok:false, error };
+  }finally{
+    hideLoader();
+    setBusy(button, false);
+    if(row) row.classList.remove('row-busy');
+  }
+}
+
+function toggleSidebar(force){
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const open = typeof force === 'boolean' ? force : !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', open);
+  backdrop.classList.toggle('show', open);
+}
+
+/* =====================================================================
+   SINKRONISASI OTOMATIS
+   ===================================================================== */
+const SYNC_INTERVAL_MS = 30000;
+let syncTimer = null, syncTicker = null;
+let lastSyncAt = 0, knownDataVersion = null, syncInFlight = false;
+
+function relativeTime(timestamp){
+  if(!timestamp) return 'belum pernah';
+  const seconds = Math.round((Date.now() - timestamp) / 1000);
+  if(seconds < 5) return 'baru saja';
+  if(seconds < 60) return `${seconds} detik lalu`;
+  const minutes = Math.round(seconds / 60);
+  if(minutes < 60) return `${minutes} menit lalu`;
+  return `${Math.round(minutes / 60)} jam lalu`;
+}
+function setSyncState(state, label){
+  const chip = document.getElementById('sync-chip');
+  if(!chip) return;
+  chip.classList.toggle('syncing', state === 'syncing');
+  chip.classList.toggle('offline', state === 'offline');
+  document.getElementById('sync-label').textContent = label;
+  document.getElementById('sync-refresh').classList.toggle('spinning', state === 'syncing');
+}
+function markSynced(){ lastSyncAt = Date.now(); paintSyncLabel(); }
+function paintSyncLabel(){
+  if(syncInFlight) return;
+  if(!apiIsConfigured()){ setSyncState('offline','Mode preview'); return; }
+  setSyncState('ok', `Diperbarui ${relativeTime(lastSyncAt)}`);
+}
+
+async function syncNow(options){
+  const { force = false, silent = true } = options || {};
+  if(!apiIsConfigured() || !adminToken || syncInFlight) return false;
+  syncInFlight = true;
+  setSyncState('syncing','Menyinkronkan…');
+  try{
+    let changed = force;
+    if(!force){
+      const info = await AxgApi.getVersion();
+      const version = Number(info?.version ?? -1);
+      if(knownDataVersion === null) knownDataVersion = version;
+      else if(version !== knownDataVersion){ knownDataVersion = version; changed = true; }
+    }
+    if(changed){
+      await reloadAdminData();
+      try{ knownDataVersion = Number((await AxgApi.getVersion())?.version ?? knownDataVersion); }
+      catch(error){ knownDataVersion = null; }
+      refreshCurrentPage();
+      if(!silent) toastInfo('Data terbaru berhasil dimuat.','Tersinkron');
+    }
+    syncInFlight = false;
+    markSynced();
+    return changed;
+  }catch(error){
+    syncInFlight = false;
+    setSyncState('offline','Sinkronisasi tertunda');
+    console.warn('Sinkronisasi gagal:', error);
+    return false;
+  }
+}
+
+/* Render ulang halaman aktif tanpa menghapus isian filter yang sedang dipakai. */
+function refreshCurrentPage(){
+  if(document.querySelector('.modal-overlay:not(.hidden)')) return;
+  const active = document.querySelector('.nav-item.active')?.dataset.nav || 'dashboard';
+  const keepIds = ['ev-search','ev-filter','pt-search','pt-filter-div','dir-search','dir-filter-div','dir-filter-event'];
+  const keep = {};
+  keepIds.forEach(id=>{ const el = document.getElementById(id); if(el) keep[id] = el.value; });
+  showPage(active);
+  keepIds.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el && keep[id] !== undefined) el.value = keep[id];
+  });
+  if(active === 'events') renderEventTable();
+  if(active === 'participants') renderParticipantTable();
+  if(active === 'directory') renderDirectoryTable();
+}
+
+async function manualRefresh(){
+  if(!apiIsConfigured()){ toastInfo('Mode preview aktif — belum tersambung ke Google Apps Script.'); return; }
+  const changed = await syncNow({ force:true, silent:true });
+  toastSuccess(changed ? 'Data terbaru berhasil dimuat.' : 'Data sudah yang paling baru.','Tersinkron');
+}
+
+function startAutoSync(){
+  stopAutoSync();
+  if(!apiIsConfigured()){ paintSyncLabel(); return; }
+  syncTimer = setInterval(()=>{ if(!document.hidden) syncNow(); }, SYNC_INTERVAL_MS);
+  syncTicker = setInterval(paintSyncLabel, 10000);
+  markSynced();
+}
+function stopAutoSync(){
+  if(syncTimer) clearInterval(syncTimer);
+  if(syncTicker) clearInterval(syncTicker);
+  syncTimer = syncTicker = null;
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden && adminToken && Date.now() - lastSyncAt > 8000) syncNow();
+});
+window.addEventListener('focus', ()=>{
+  if(adminToken && Date.now() - lastSyncAt > 15000) syncNow();
+});
+
+/* =====================================================================
+   NAVIGASI
+   ===================================================================== */
 function showPage(page){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === page));
-  document.getElementById('sidebar').classList.remove('open');
-  const titles = {dashboard:'Dashboard', events:'Kelola Event', participants:'Kelola Peserta'};
-  document.getElementById('page-title').textContent = titles[page];
+  toggleSidebar(false);
+  const titles = {dashboard:'Dashboard', events:'Kelola Event', participants:'Kelola Peserta', directory:'Siapa Ikut Apa'};
+  document.getElementById('page-title').textContent = titles[page] || 'Dashboard';
   const content = document.getElementById('content');
   const topAction = document.getElementById('topbar-action');
   topAction.innerHTML = '';
   if(page === 'dashboard') renderDashboard(content);
   if(page === 'events') renderEvents(content, topAction);
   if(page === 'participants') renderParticipants(content, topAction);
+  if(page === 'directory') renderDirectory(content, topAction);
 }
 
-function toast(msg){
-  const t = document.getElementById('toast');
-  document.getElementById('toast-msg').textContent = msg;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2400);
+/* =====================================================================
+   PERHITUNGAN
+   ===================================================================== */
+function countTeams(event){
+  return new Set((event.participants||[]).map(p=>normalizeText(p.team)).filter(Boolean)).size;
 }
-
-/* ============ DASHBOARD ============ */
-function renderDashboard(el){
-  const totalEvent = events.length;
-  const totalPeserta = Object.values(participants).reduce((a,l)=>a+l.length,0);
-  const eventAktif = events.filter(e=>e.active).length;
-  el.innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-card"><div class="label">Total Event</div><div class="num">${totalEvent}</div><div class="bar" style="width:70%"></div></div>
-      <div class="stat-card"><div class="label">Total Peserta</div><div class="num">${totalPeserta}</div><div class="bar" style="width:85%"></div></div>
-      <div class="stat-card"><div class="label">Event Aktif</div><div class="num">${eventAktif}</div><div class="bar" style="width:40%"></div></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h3>Event Terbaru</h3><button class="btn btn-outline btn-sm" onclick="showPage('events')">Lihat Semua</button></div>
-      <table>
-        <thead><tr><th>Nama Event</th><th>Tanggal</th><th>Status</th><th>Peserta</th></tr></thead>
-        <tbody>
-          ${events.map(e => `
-            <tr class="row-hover">
-              <td class="name-cell">${escapeHtml(e.name)}<div class="sub-cell">${e.mode==='B'?'Dengan Kategori':'Tanpa Kategori'}</div></td>
-              <td class="mono">${formatDate(e.date)}</td>
-              <td>${statusBadge(e)}</td>
-              <td class="mono">${(participants[e.id]||[]).length}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+function getEventCounts(event){
+  const people = (event.participants||[]).length;
+  if(event.type === 'tim') return { registered:countTeams(event), capacity:event.capacity, unit:'tim', people };
+  return { registered:people, capacity:event.capacity, unit:'peserta', people };
 }
-
-function statusBadge(e){
-  if(!e.active) return `<span class="badge badge-gray"><span class="dot"></span>Event Selesai</span>`;
-  const counts = getEventCounts(e);
+function typeLabel(event){
+  if(event.type !== 'tim') return 'Individu';
+  return event.teamSize === 'bebas' ? 'Tim · anggota bebas' : `Tim · ${event.teamSize} orang/tim`;
+}
+function statusBadge(event){
+  if(!event.active) return `<span class="badge badge-gray"><span class="dot"></span>Nonaktif</span>`;
+  const counts = getEventCounts(event);
   const ratio = counts.capacity > 0 ? counts.registered / counts.capacity : 0;
   if(counts.capacity > 0 && counts.registered >= counts.capacity) return `<span class="badge badge-gold"><span class="dot"></span>Slot Penuh</span>`;
   if(ratio >= .8) return `<span class="badge badge-gold"><span class="dot"></span>Slot Terbatas</span>`;
-  return `<span class="badge badge-green"><span class="dot"></span>Pendaftaran Dibuka</span>`;
+  return `<span class="badge badge-green"><span class="dot"></span>Dibuka</span>`;
 }
-function getEventCounts(event){
-  if(event.mode === 'A') return {registered:(participants[event.id]||[]).length,capacity:event.capacity};
-  return event.categories.reduce((total,category)=>{
-    const categoryParticipants = (participants[event.id]||[]).filter(p=>p.categoryId===category.id || normalizeText(p.category)===normalizeText(category.name));
-    const registered = category.type === 'tim'
-      ? new Set(categoryParticipants.map(p=>normalizeText(p.team)).filter(Boolean)).size
-      : categoryParticipants.length;
-    return {registered:total.registered+registered,capacity:total.capacity+category.capacity};
-  },{registered:0,capacity:0});
+function sortedEvents(list){
+  return list.slice().sort((a,b)=>
+    String(a.date||'').localeCompare(String(b.date||'')) ||
+    (a.sortOrder||0) - (b.sortOrder||0) ||
+    String(a.name||'').localeCompare(String(b.name||''),'id')
+  );
 }
-function formatDate(d){
-  const dt = new Date(d+'T00:00:00');
-  return dt.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+function groupByTeam(list){
+  const map = new Map();
+  list.forEach(p=>{
+    if(!p.team) return;
+    const key = normalizeText(p.team);
+    if(!map.has(key)) map.set(key,{ name:p.team, members:[] });
+    map.get(key).members.push(p);
+  });
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'id'));
 }
 
-/* ============ KELOLA EVENT ============ */
+/* Direktori lintas event: satu baris per orang + daftar lomba yang diikuti. */
+function buildDirectory(){
+  const people = new Map();
+  events.forEach(event=>{
+    (event.participants||[]).forEach(p=>{
+      const key = `${normalizeText(p.name)}|${normalizeText(p.divisi)}`;
+      if(!people.has(key)) people.set(key,{ name:p.name, divisi:p.divisi, telegram:p.telegram, entries:[] });
+      const person = people.get(key);
+      if(!person.telegram && p.telegram) person.telegram = p.telegram;
+      person.entries.push({
+        eventId:event.id, eventName:event.name, eventGroup:event.eventGroup || '',
+        registrationNumber:p.registrationNumber, team:p.team || '', active:event.active
+      });
+    });
+  });
+  return [...people.values()]
+    .map(person=>({ ...person, entries:person.entries.sort((a,b)=>a.eventName.localeCompare(b.eventName,'id')) }))
+    .sort((a,b)=> b.entries.length - a.entries.length || a.name.localeCompare(b.name,'id'));
+}
+
+/* =====================================================================
+   DASHBOARD
+   ===================================================================== */
+function renderDashboard(el){
+  const totalEvent = events.length;
+  const totalPendaftaran = events.reduce((sum,e)=>sum + e.participants.length, 0);
+  const eventAktif = events.filter(e=>e.active).length;
+  const orang = buildDirectory().length;
+  const totals = events.reduce((acc,e)=>{
+    const counts = getEventCounts(e);
+    return { registered:acc.registered+counts.registered, capacity:acc.capacity+counts.capacity };
+  },{registered:0,capacity:0});
+  const fillRate = totals.capacity > 0 ? Math.round(totals.registered / totals.capacity * 100) : 0;
+  const recent = sortedEvents(events).slice(0,6);
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card anim-in"><div class="label">Total Event</div><div class="num">${totalEvent}</div><div class="bar" data-w="${totalEvent?100:0}%"></div></div>
+      <div class="stat-card anim-in" style="animation-delay:.05s"><div class="label">Total Pendaftaran</div><div class="num">${totalPendaftaran}</div><div class="bar" data-w="${Math.min(100,fillRate)}%"></div></div>
+      <div class="stat-card anim-in" style="animation-delay:.1s"><div class="label">Jumlah Orang</div><div class="num">${orang}</div><div class="bar" data-w="${totalPendaftaran?Math.round(orang/totalPendaftaran*100):0}%"></div></div>
+      <div class="stat-card anim-in" style="animation-delay:.15s"><div class="label">Event Aktif</div><div class="num">${eventAktif}</div><div class="bar" data-w="${totalEvent?Math.round(eventAktif/totalEvent*100):0}%"></div></div>
+      <div class="stat-card anim-in" style="animation-delay:.2s"><div class="label">Keterisian Slot</div><div class="num">${fillRate}<span style="font-size:16px">%</span></div><div class="bar" data-w="${Math.min(100,fillRate)}%"></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Event Terdekat</h3>
+        <button class="btn btn-outline btn-sm" onclick="showPage('events')">Lihat Semua</button>
+      </div>
+      ${recent.length ? `
+      <div class="table-scroll">
+        <table class="responsive-table">
+          <thead><tr><th>Event</th><th>Tipe</th><th>Tanggal</th><th>Status</th><th>Terisi</th></tr></thead>
+          <tbody>
+            ${recent.map(e=>{
+              const counts = getEventCounts(e);
+              return `
+              <tr class="row-hover">
+                <td class="cell-main" data-label="Event"><div class="name-cell">${e.flagEmoji||''} ${escapeHtml(e.name)}</div><div class="sub-cell">${e.eventGroup ? escapeHtml(e.eventGroup) : 'Tanpa acara induk'}</div></td>
+                <td data-label="Tipe">${typeLabel(e)}</td>
+                <td class="mono" data-label="Tanggal">${formatDate(e.date)}</td>
+                <td data-label="Status">${statusBadge(e)}</td>
+                <td class="mono" data-label="Terisi">${counts.registered} / ${counts.capacity} ${counts.unit}${e.type==='tim'?`<div class="sub-cell">${counts.people} orang</div>`:''}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Belum ada event</h4><p>Mulai dengan membuat lomba pertama Anda.</p><button class="btn btn-gold btn-sm" onclick="showPage('events')">Buat Event</button></div>`}
+    </div>`;
+
+  requestAnimationFrame(()=>{
+    el.querySelectorAll('.stat-card .bar').forEach(bar=>{ bar.style.width = bar.dataset.w || '0%'; });
+  });
+}
+
+/* =====================================================================
+   KELOLA EVENT
+   ===================================================================== */
 function renderEvents(el, topAction){
-  topAction.innerHTML = `<button class="btn btn-gold btn-sm" onclick="openEventModal()">+ Buat Event Baru</button>`;
+  topAction.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+      <button class="btn btn-outline btn-sm" onclick="downloadAllExcel(this)" title="Unduh rekap seluruh event dalam satu file Excel">⬇ Rekap Semua</button>
+      <button class="btn btn-gold btn-sm" onclick="openEventModal()">+ Buat Event Baru</button>
+    </div>`;
   el.innerHTML = `
     <div class="panel">
       <div class="panel-head">
@@ -825,186 +1311,203 @@ function renderEvents(el, topAction){
         </div>
       </div>
       <div id="event-table-wrap"></div>
-    </div>
-  `;
+    </div>`;
   renderEventTable();
 }
 
 function renderEventTable(){
   const wrap = document.getElementById('event-table-wrap');
-  const q = (document.getElementById('ev-search')?.value || '').toLowerCase();
+  if(!wrap) return;
+  const q = normalizeText(document.getElementById('ev-search')?.value || '');
   const filter = document.getElementById('ev-filter')?.value || '';
-  let list = events.filter(e => e.name.toLowerCase().includes(q));
+  let list = sortedEvents(events).filter(e => normalizeText(e.name).includes(q) || normalizeText(e.eventGroup).includes(q));
   if(filter === 'active') list = list.filter(e=>e.active);
   if(filter === 'inactive') list = list.filter(e=>!e.active);
 
   if(list.length === 0){
-    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Tidak ada event ditemukan</h4><p>Coba ubah kata kunci pencarian atau filter.</p></div>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Tidak ada event ditemukan</h4><p>Coba ubah kata kunci pencarian atau filter, atau buat event baru.</p><button class="btn btn-gold btn-sm" onclick="openEventModal()">+ Buat Event Baru</button></div>`;
     return;
   }
   wrap.innerHTML = `
-    <table>
-      <thead><tr><th>Nama Event</th><th>Lokasi</th><th>Tanggal</th><th>Status</th><th>Peserta</th><th>Aksi</th></tr></thead>
-      <tbody>
-        ${list.map(e => `
-          <tr class="row-hover">
-            <td class="name-cell">${escapeHtml(e.name)}<div class="sub-cell">${e.mode==='B'?'Dengan Kategori · '+e.categories.length+' kategori':'Tanpa Kategori'}</div></td>
-            <td>${escapeHtml(e.location)}</td>
-            <td class="mono">${formatDate(e.date)}</td>
-            <td>${statusBadge(e)}</td>
-            <td class="mono">${(participants[e.id]||[]).length}</td>
-            <td>
-              <div class="event-actions">
-                <button type="button" class="event-action-btn" onclick="openEventModal('${e.id}')">Edit Event</button>
-                <button type="button" class="event-action-btn" onclick="toggleActive('${e.id}')">${e.active?'Nonaktifkan':'Aktifkan'}</button>
-                <button type="button" class="event-action-btn" onclick="openResultModal('${e.id}')">Isi Hasil</button>
-                <button type="button" class="event-action-btn" onclick="downloadExcel('${e.id}')">Unduh Peserta</button>
-                <button type="button" class="event-action-btn event-action-btn-danger" onclick="confirmDeleteEvent('${e.id}')">Hapus</button>
-              </div>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>
-  `;
+    <div class="table-scroll">
+      <table class="responsive-table">
+        <thead><tr><th>Event</th><th>Tipe</th><th>Tanggal</th><th>Status</th><th>Terisi</th><th>Aksi</th></tr></thead>
+        <tbody>
+          ${list.map(e=>{
+            const counts = getEventCounts(e);
+            return `
+            <tr class="row-hover" data-event-row="${e.id}">
+              <td class="cell-main" data-label="Event">
+                <div class="name-cell">${e.flagEmoji||''} ${escapeHtml(e.name)}</div>
+                <div class="sub-cell">${e.eventGroup ? escapeHtml(e.eventGroup) + ' · ' : ''}${escapeHtml(e.location)}</div>
+              </td>
+              <td data-label="Tipe">${typeLabel(e)}</td>
+              <td class="mono" data-label="Tanggal">${formatDate(e.date)}</td>
+              <td data-label="Status">${statusBadge(e)}</td>
+              <td class="mono" data-label="Terisi">${counts.registered} / ${counts.capacity} ${counts.unit}${e.type==='tim'?`<div class="sub-cell">${counts.people} orang</div>`:''}</td>
+              <td class="cell-actions" data-label="Aksi">
+                <div class="event-actions">
+                  <button type="button" class="event-action-btn" onclick="openEventModal('${e.id}')">Edit</button>
+                  <button type="button" class="event-action-btn" onclick="toggleActive('${e.id}',this)">${e.active?'Nonaktifkan':'Aktifkan'}</button>
+                  <button type="button" class="event-action-btn" onclick="duplicateEvent('${e.id}',this)" title="Salin event ini sebagai event baru">Duplikat</button>
+                  <button type="button" class="event-action-btn" onclick="openResultModal('${e.id}')">Pemenang</button>
+                  <button type="button" class="event-action-btn" onclick="downloadExcel('${e.id}',this)">Excel</button>
+                  <button type="button" class="event-action-btn event-action-btn-danger" onclick="confirmDeleteEvent('${e.id}')">Hapus</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
-async function toggleActive(id){
+function flashRow(selector){
+  requestAnimationFrame(()=>{
+    const row = document.querySelector(selector);
+    if(row){ row.classList.add('row-updated'); setTimeout(()=>row.classList.remove('row-updated'),1600); }
+  });
+}
+
+async function toggleActive(id, button){
   const e = events.find(x=>x.id===id);
   if(!e) return;
   const previous = e.active;
   e.active = !e.active;
-  try{
-    await persistEvent(e);
-    renderEventTable();
-    toast(apiIsConfigured()
-      ? (e.active ? 'Event diaktifkan — kini tampil di halaman publik' : 'Event dinonaktifkan — disembunyikan dari publik')
-      : 'Status berubah pada mode preview');
-  }catch(error){
-    e.active = previous;
-    toast(error.message || 'Status event gagal disimpan');
-  }
+  const outcome = await runAction({
+    loadingText: e.active ? 'Mengaktifkan event…' : 'Menonaktifkan event…',
+    successText: e.active
+      ? `"${e.name}" diaktifkan dan kini tampil di halaman publik.`
+      : `"${e.name}" dinonaktifkan dan disembunyikan dari halaman publik.`,
+    successTitle:'Berhasil diperbarui',
+    button, row: button ? button.closest('tr') : null,
+    task: ()=>persistEvent(e)
+  });
+  if(!outcome.ok) e.active = previous;
+  renderEventTable();
+  if(outcome.ok) flashRow(`[data-event-row="${id}"]`);
 }
 
-function downloadExcel(id){
+async function duplicateEvent(id, button){
   const e = events.find(x=>x.id===id);
   if(!e) return;
-  if(!window.XLSX){
-    toast('Modul Excel belum termuat. Periksa koneksi internet lalu coba lagi.');
-    return;
-  }
-  const list = participants[e.id] || [];
-  const categoryRows = e.mode === 'B' ? e.categories.map(category=>({
-    category:category.name,
-    capacity:category.capacity,
-    registered:category.type === 'tim' ? new Set(category.participants.map(participant=>normalizeText(participant.team)).filter(Boolean)).size : category.participants.length,
-    unit:category.type === 'tim' ? 'Tim' : 'Peserta'
-  })) : [{category:'Tanpa Kategori',capacity:e.capacity,registered:list.length,unit:'Peserta'}];
-  const summaryRows = [
-    ['RINGKASAN EVENT', e.name],
-    ['Tanggal', e.date || '-'],
-    ['Lokasi', e.location || '-'],
-    ['Prefix Pendaftaran', normalizePrefix(e.prefix)],
-    [],
-    ['Kategori','Terdaftar','Kapasitas','Satuan']
-  ].concat(categoryRows.map(item=>[item.category,item.registered,item.capacity,item.unit]));
-  const detailRows = [];
-  const detailHeaders = ['Nomor Pendaftaran','Nama','Divisi','Telegram','Kategori','Tim'];
-  const groups = e.mode === 'B' ? e.categories.map(category=>({name:category.name,items:category.participants})) : [{name:'Peserta',items:list}];
-  groups.forEach(group=>{
-    detailRows.push([`Kategori: ${group.name}`]);
-    detailRows.push(detailHeaders);
-    const ordered = group.items.slice().sort((a,b)=> String(a.team||'').localeCompare(String(b.team||''),'id') || String(a.name||'').localeCompare(String(b.name||''),'id'));
-    if(!ordered.length) detailRows.push(['Belum ada peserta']);
-    ordered.forEach(p=>detailRows.push([
-      p.registrationNumber || p.id,
-      p.name,
-      p.divisi,
-      p.telegram ? '@'+p.telegram : '',
-      p.category || group.name,
-      p.team || '-'
-    ]));
-    detailRows.push([]);
+  const outcome = await runAction({
+    loadingText:'Menyalin event…',
+    loadingSub:'Membuat salinan tanpa peserta',
+    successText:`Salinan "${e.name}" dibuat. Ubah namanya lalu aktifkan saat siap.`,
+    successTitle:'Event diduplikat',
+    button, row: button ? button.closest('tr') : null,
+    task: async ()=>{
+      if(apiIsConfigured()){
+        await AxgApi.duplicateEvent(id);
+        await reloadAdminData();
+      } else {
+        const copy = normalizeEvent({ ...e, id:uid(), slug:slugify(e.name+'-salinan'), name:e.name+' (Salinan)', active:false, results:null, participants:[] }, events.length);
+        events.push(copy);
+        indexParticipants();
+      }
+    }
   });
-  const workbook = XLSX.utils.book_new();
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-  const detailSheet = XLSX.utils.aoa_to_sheet(detailRows);
-  summarySheet['!cols'] = [{wch:28},{wch:28},{wch:14},{wch:14}];
-  detailSheet['!cols'] = [{wch:22},{wch:28},{wch:18},{wch:22},{wch:24},{wch:22}];
-  XLSX.utils.book_append_sheet(workbook,summarySheet,'Ringkasan');
-  XLSX.utils.book_append_sheet(workbook,detailSheet,'Peserta');
-  XLSX.writeFile(workbook,`${slugify(e.name)||'axg-event'}-peserta.xlsx`);
-  toast('Excel peserta berhasil diunduh');
+  if(!outcome.ok) return;
+  renderEventTable();
 }
 
 function confirmDeleteEvent(id){
   const e = events.find(x=>x.id===id);
-  const count = (participants[id]||[]).length;
+  if(!e) return;
+  const count = e.participants.length;
   document.getElementById('confirm-title').textContent = 'Hapus Event Ini?';
-  document.getElementById('confirm-text').innerHTML = `Event <strong>"${escapeHtml(e.name)}"</strong> beserta <strong>${count} peserta terdaftar</strong> akan dihapus permanen. Data tidak dapat dikembalikan.`;
+  document.getElementById('confirm-text').innerHTML = `Event <strong>"${escapeHtml(e.name)}"</strong> beserta <strong>${count} peserta terdaftar</strong> akan dihapus permanen. Data tidak dapat dikembalikan dari panel ini.`;
   const btn = document.getElementById('confirm-btn');
   btn.textContent = 'Ya, Hapus Permanen';
+  btn.className = 'btn btn-danger';
   btn.onclick = async () => {
-    try{
-      if(apiIsConfigured()){
-        await AxgApi.deleteEvent(id);
-        await reloadAdminData();
-      } else {
-        events = events.filter(x=>x.id!==id);
-        delete participants[id];
+    const row = document.querySelector(`[data-event-row="${id}"]`);
+    if(row) row.classList.add('row-removing');
+    const outcome = await runAction({
+      loadingText:'Menghapus event…',
+      loadingSub:'Menghapus event beserta seluruh pesertanya',
+      successText:`Event "${e.name}" beserta ${count} peserta berhasil dihapus.`,
+      successTitle:'Berhasil dihapus',
+      button: btn,
+      task: async ()=>{
+        if(apiIsConfigured()){
+          await AxgApi.deleteEvent(id);
+          await reloadAdminData();
+        } else {
+          events = events.filter(x=>x.id!==id);
+          indexParticipants();
+        }
       }
-      closeModal('modal-confirm');
-      renderEventTable();
-      toast(apiIsConfigured() ? 'Event berhasil dihapus' : 'Event dihapus pada mode preview');
-    }catch(error){
-      toast(error.message || 'Event gagal dihapus');
-    }
+    });
+    if(outcome.ok) closeModal('modal-confirm');
+    else if(row) row.classList.remove('row-removing');
+    renderEventTable();
   };
   openModal('modal-confirm');
 }
 
-/* ---- Event form modal ---- */
+/* =====================================================================
+   FORM EVENT
+   ===================================================================== */
 function openEventModal(id){
-  editingEventId = id || null;
-  catCounter = 0;
-  extraFieldCounter = 0;
-  document.getElementById('category-list').innerHTML = '';
-  document.getElementById('extra-field-list').innerHTML = '';
   const e = id ? events.find(x=>x.id===id) : null;
+  if(id && !e){ toastError('Event tidak ditemukan. Coba muat ulang data.'); return; }
+  editingEventId = id || null;
+  extraFieldCounter = 0;
+  document.getElementById('extra-field-list').innerHTML = '';
 
   document.getElementById('event-modal-title').textContent = id ? 'Edit Event' : 'Buat Event Baru';
   document.getElementById('f-name').value = e ? e.name : '';
-  document.getElementById('f-prefix').value = e ? normalizePrefix(e.prefix) : 'AXG';
+  document.getElementById('f-group').value = e ? e.eventGroup : '';
+  document.getElementById('f-prefix').value = e ? normalizePrefix(e.prefix) : '';
   document.getElementById('f-flag').value = e ? e.flagEmoji : '';
   document.getElementById('f-tagline').value = e ? e.tagline : '';
   document.getElementById('f-desc').value = e ? e.description : '';
   document.getElementById('f-date').value = e ? e.date : '';
   document.getElementById('f-location').value = e ? e.location : '';
   document.getElementById('f-photo').value = e ? (e.image||'') : '';
+  document.getElementById('f-cap').value = e ? (e.capacity || '') : '';
+  document.getElementById('f-rules').value = e ? (e.rules || '') : '';
+  document.getElementById('f-prize1').value = e?.prizes?.[0]?.value || '';
+  document.getElementById('f-prize2').value = e?.prizes?.[1]?.value || '';
+  document.getElementById('f-prize3').value = e?.prizes?.[2]?.value || '';
+  document.getElementById('f-show-prizes').checked = e ? e.showPrizes : true;
 
-  setMode(e ? e.mode : 'A');
+  const teamSize = e && e.type === 'tim' ? e.teamSize : 'bebas';
+  document.getElementById('f-teamsize-mode').value = teamSize === 'bebas' ? 'free' : 'fixed';
+  document.getElementById('f-teamsize-num').value = teamSize === 'bebas' ? '' : Number(teamSize);
+  setEventType(e ? e.type : 'individu');
 
-  if(e && e.mode === 'A'){
-    document.getElementById('f-cap-a').value = e.capacity || '';
-    document.getElementById('f-rules-a').value = e.rules || '';
-    document.getElementById('f-prize-a1').value = (e.prizes&&e.prizes[0]?.value)||'';
-    document.getElementById('f-prize-a2').value = (e.prizes&&e.prizes[1]?.value)||'';
-    document.getElementById('f-prize-a3').value = (e.prizes&&e.prizes[2]?.value)||'';
-    (e.extraFields || []).forEach(field=>addExtraFieldBlock(field));
-  } else if(!e){
-    document.getElementById('f-cap-a').value = '';
-    document.getElementById('f-rules-a').value = '';
-    document.getElementById('f-prize-a1').value = '';
-    document.getElementById('f-prize-a2').value = '';
-    document.getElementById('f-prize-a3').value = '';
-  }
+  (e?.extraFields || []).forEach(field=>addExtraFieldBlock(field));
 
-  if(e && e.mode === 'B'){
-    document.getElementById('category-list').innerHTML = '';
-    catCounter = 0;
-    e.categories.forEach(c => addCategoryBlock(c));
-  }
+  // Prefix otomatis mengikuti nama saat membuat event baru.
+  const nameInput = document.getElementById('f-name');
+  nameInput.oninput = ()=>{
+    if(editingEventId) return;
+    const auto = normalizePrefix(nameInput.value.replace(/\s+/g,''));
+    document.getElementById('f-prefix').value = auto;
+  };
 
   openModal('modal-event');
+}
+
+function setEventType(type){
+  const isTeam = type === 'tim';
+  document.getElementById('type-individu').classList.toggle('active', !isTeam);
+  document.getElementById('type-tim').classList.toggle('active', isTeam);
+  document.getElementById('team-settings').classList.toggle('hidden', !isTeam);
+  document.getElementById('cap-label').textContent = isTeam ? 'Jumlah Tim' : 'Jumlah Peserta';
+  document.getElementById('cap-hint').textContent = isTeam
+    ? 'Berapa tim yang boleh ikut. Total orang = jumlah tim × anggota per tim.'
+    : 'Berapa orang yang boleh mendaftar di lomba ini.';
+  document.getElementById('modal-event').dataset.type = isTeam ? 'tim' : 'individu';
+  toggleTeamSizeInput();
+}
+
+function toggleTeamSizeInput(){
+  const mode = document.getElementById('f-teamsize-mode').value;
+  document.getElementById('f-teamsize-num').classList.toggle('hidden', mode !== 'fixed');
 }
 
 function addExtraFieldBlock(data={}){
@@ -1014,7 +1517,7 @@ function addExtraFieldBlock(data={}){
   div.className = 'category-block extra-field-block';
   div.dataset.fieldId = fieldId;
   div.innerHTML = `
-    <div class="cat-head"><span>Field Tambahan</span><button class="remove-cat" type="button" onclick="this.closest('.extra-field-block').remove()">Hapus Field</button></div>
+    <div class="cat-head"><span>Field Tambahan</span><button class="remove-cat" type="button" onclick="this.closest('.extra-field-block').remove()">Hapus</button></div>
     <div class="grid-2">
       <div class="field"><label>Label</label><input class="extra-label" value="${escapeHtml(data.label||'')}" placeholder="misal: Ukuran Baju"></div>
       <div class="field"><label>Tipe</label><select class="extra-type"><option value="text" ${data.type!=='number'?'selected':''}>Teks</option><option value="number" ${data.type==='number'?'selected':''}>Angka</option></select></div>
@@ -1026,234 +1529,165 @@ function addExtraFieldBlock(data={}){
   document.getElementById('extra-field-list').appendChild(div);
 }
 
-function setMode(mode){
-  currentMode = mode;
-  document.getElementById('mode-a-opt').classList.toggle('active', mode==='A');
-  document.getElementById('mode-b-opt').classList.toggle('active', mode==='B');
-  document.getElementById('mode-a-fields').classList.toggle('hidden', mode!=='A');
-  document.getElementById('mode-b-fields').classList.toggle('hidden', mode!=='B');
-  if(mode==='B' && document.getElementById('category-list').children.length===0){
-    addCategoryBlock();
-  }
-}
-
-function addCategoryBlock(data){
-  catCounter++;
-  const cid = data?.id || 'cat'+catCounter+'_'+Date.now();
-  const prizes = normalizePrizes(data?.prizes || []);
-  const freeTeamSize = data?.teamSize === 'bebas' || data?.teamSize === 'free' || !data?.teamSize;
-  const div = document.createElement('div');
-  div.className = 'category-block';
-  div.dataset.cid = cid;
-  div.innerHTML = `
-    <div class="cat-head">
-      <span>Kategori</span>
-      <button class="remove-cat" onclick="this.closest('.category-block').remove()">Hapus Kategori</button>
-    </div>
-    <div class="grid-2">
-      <div class="field"><label>Nama Kategori</label><input class="cat-name" placeholder="misal: Catur" value="${escapeHtml(data?.name||'')}"></div>
-      <div class="field"><label>Tipe</label>
-        <select class="cat-type" onchange="toggleTeamFields(this)">
-          <option value="individu" ${data&&data.type==='individu'?'selected':''}>Individu</option>
-          <option value="tim" ${data&&data.type==='tim'?'selected':''}>Tim</option>
-        </select>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="field"><label>Kapasitas <span style="color:var(--red)">*wajib</span></label><input class="cat-cap" type="number" min="1" placeholder="misal: 20" value="${data?data.capacity:''}"></div>
-      <div class="field cat-teamsize ${data&&data.type==='tim'?'':'hidden'}"><label>Anggota per Tim</label>
-        <select class="cat-teamsize-select">
-          <option value="fixed" ${!freeTeamSize?'selected':''}>Tetap — isi jumlah</option>
-          <option value="free" ${freeTeamSize?'selected':''}>Bebas</option>
-        </select>
-        <input class="cat-teamsize-num" type="number" min="1" placeholder="misal: 2" style="margin-top:8px;" value="${!freeTeamSize?Number(data.teamSize):''}">
-      </div>
-    </div>
-    <div class="field"><label>Aturan Main</label><textarea class="cat-rules" rows="2" placeholder="Aturan main kategori ini">${escapeHtml(data?.rules||'')}</textarea></div>
-    <label style="font-size:12px;font-weight:600;color:var(--ink-soft);">Rincian Hadiah</label>
-    <div class="prize-row"><label>Juara 1</label><input class="cat-prize1" placeholder="misal: Rp 300.000" value="${escapeHtml(prizes[0]?.value||'')}"></div>
-    <div class="prize-row"><label>Juara 2</label><input class="cat-prize2" placeholder="misal: Rp 200.000" value="${escapeHtml(prizes[1]?.value||'')}"></div>
-    <div class="prize-row"><label>Juara 3</label><input class="cat-prize3" placeholder="misal: Rp 100.000" value="${escapeHtml(prizes[2]?.value||'')}"></div>
-  `;
-  div._results = data?.results || null;
-  document.getElementById('category-list').appendChild(div);
-}
-
-function toggleTeamFields(sel){
-  const block = sel.closest('.category-block');
-  block.querySelector('.cat-teamsize').classList.toggle('hidden', sel.value !== 'tim');
-}
-
 async function saveEvent(){
   const name = document.getElementById('f-name').value.trim();
   const date = document.getElementById('f-date').value;
   const location = document.getElementById('f-location').value.trim();
   const description = document.getElementById('f-desc').value.trim();
-  const image = document.getElementById('f-photo').value.trim();
+  const type = document.getElementById('modal-event').dataset.type === 'tim' ? 'tim' : 'individu';
+  const capacity = Number(document.getElementById('f-cap').value);
   const existing = editingEventId ? events.find(event=>event.id===editingEventId) : null;
 
   if(!name || !date || !location){
-    toast('Field wajib (nama, tanggal, lokasi) belum lengkap');
+    toastError('Nama, tanggal, dan lokasi event wajib diisi.');
     return;
   }
-  if(existing && existing.mode !== currentMode && (participants[existing.id]||[]).length){
-    toast('Mode event tidak dapat diubah selama masih memiliki peserta');
+  if(!capacity || capacity <= 0){
+    toastError(type === 'tim' ? 'Jumlah tim wajib diisi dan lebih dari 0.' : 'Jumlah peserta wajib diisi dan lebih dari 0.');
     return;
   }
 
-  let payload = {
-    ...(existing || {}),
-    id:existing?.id || uid(),
-    slug:existing?.slug || slugify(name),
+  let teamSize = 'bebas';
+  if(type === 'tim'){
+    const mode = document.getElementById('f-teamsize-mode').value;
+    if(mode === 'fixed'){
+      teamSize = Number(document.getElementById('f-teamsize-num').value);
+      if(!teamSize || teamSize < 1){
+        toastError('Jumlah anggota per tim wajib diisi dan lebih dari 0.');
+        return;
+      }
+    }
+  }
+  if(existing && existing.type !== type && existing.participants.length){
+    toastError('Tipe peserta tidak dapat diubah selama event masih memiliki peserta.');
+    return;
+  }
+
+  const payload = {
+    id: existing?.id || uid(),
+    slug: existing?.slug || slugify(name),
     name,
-    prefix:normalizePrefix(document.getElementById('f-prefix').value || existing?.prefix),
-    flagEmoji:document.getElementById('f-flag').value.trim(),
-    tagline:document.getElementById('f-tagline').value.trim() || description,
+    eventGroup: document.getElementById('f-group').value.trim(),
+    prefix: normalizePrefix(document.getElementById('f-prefix').value || name),
+    flagEmoji: document.getElementById('f-flag').value.trim(),
+    tagline: document.getElementById('f-tagline').value.trim() || description,
     description,
     date,
     location,
-    image,
-    mode:currentMode,
-    active:existing?.active || false,
-    results:existing?.results || null
-  };
-
-  if(currentMode === 'A'){
-    const cap = document.getElementById('f-cap-a').value;
-    if(!cap || Number(cap) <= 0){
-      toast('Kapasitas wajib diisi dan harus lebih dari 0');
-      return;
-    }
-    payload.capacity = Number(cap);
-    payload.rules = document.getElementById('f-rules-a').value;
-    payload.prizes = normalizePrizes([
-      document.getElementById('f-prize-a1').value,
-      document.getElementById('f-prize-a2').value,
-      document.getElementById('f-prize-a3').value,
-    ]);
-    payload.extraFields = [...document.querySelectorAll('#extra-field-list .extra-field-block')].map((block,index)=>({
+    image: document.getElementById('f-photo').value.trim(),
+    type,
+    teamSize,
+    capacity,
+    rules: document.getElementById('f-rules').value.trim(),
+    prizes: normalizePrizes([
+      document.getElementById('f-prize1').value.trim(),
+      document.getElementById('f-prize2').value.trim(),
+      document.getElementById('f-prize3').value.trim()
+    ]),
+    showPrizes: document.getElementById('f-show-prizes').checked,
+    results: existing?.results || null,
+    showResults: existing ? existing.showResults : true,
+    extraFields: [...document.querySelectorAll('#extra-field-list .extra-field-block')].map((block,index)=>({
       id:block.dataset.fieldId || `field-${index+1}`,
       label:block.querySelector('.extra-label').value.trim(),
       type:block.querySelector('.extra-type').value,
       required:block.querySelector('.extra-required').value === 'true',
       placeholder:block.querySelector('.extra-placeholder').value.trim()
-    })).filter(field=>field.label);
-    payload.categories = [];
-  } else {
-    const blocks = [...document.querySelectorAll('#category-list .category-block')];
-    if(blocks.length === 0){
-      toast('Minimal harus ada 1 kategori untuk Mode Dengan Kategori');
-      return;
-    }
-    const categories = [];
-    for(const b of blocks){
-      const cname = b.querySelector('.cat-name').value.trim();
-      const ctype = b.querySelector('.cat-type').value;
-      const ccap = b.querySelector('.cat-cap').value;
-      if(!cname || !ccap || Number(ccap) <= 0){
-        toast('Setiap kategori wajib punya nama & kapasitas > 0');
-        return;
-      }
-      const previous = existing?.categories?.find(category=>category.id===b.dataset.cid);
-      const cat = { id:b.dataset.cid || uid(), name: cname, type: ctype, capacity: Number(ccap),
-        rules: b.querySelector('.cat-rules').value,
-        prizes: normalizePrizes([b.querySelector('.cat-prize1').value, b.querySelector('.cat-prize2').value, b.querySelector('.cat-prize3').value]),
-        results:previous?.results || b._results || null,
-        participants:previous?.participants || [] };
-      if(ctype === 'tim'){
-        const mode = b.querySelector('.cat-teamsize-select').value;
-        const teamSize = Number(b.querySelector('.cat-teamsize-num').value);
-        if(mode === 'fixed' && teamSize < 1){
-          toast(`Jumlah anggota tim untuk ${cname} wajib lebih dari 0`);
-          return;
-        }
-        cat.teamSize = mode === 'fixed' ? teamSize : 'bebas';
-      }
-      categories.push(cat);
-    }
-    const removedWithParticipants = (existing?.categories || []).find(category=>
-      !categories.some(item=>item.id===category.id) && (participants[existing.id]||[]).some(p=>p.categoryId===category.id)
-    );
-    if(removedWithParticipants){
-      toast(`Kategori ${removedWithParticipants.name} masih memiliki peserta dan tidak dapat dihapus`);
-      return;
-    }
-    payload.categories = categories;
-    payload.capacity = 0;
-    payload.rules = '';
-    payload.prizes = [];
-    payload.extraFields = [];
-  }
+    })).filter(field=>field.label),
+    active: existing ? existing.active : false,
+    sortOrder: existing?.sortOrder || 0,
+    participants: existing?.participants || []
+  };
 
   const previousEvents = events.slice();
-  try{
-    if(existing){
-      const index = events.findIndex(event=>event.id===existing.id);
-      events[index] = normalizeEvent(payload,index);
-    } else {
-      events.push(normalizeEvent(payload,events.length));
-      participants[payload.id] = [];
-    }
-    syncNestedParticipants(payload.id);
-    await persistEvent(events.find(event=>event.id===payload.id));
-    closeModal('modal-event');
-    renderEventTable();
-    toast(apiIsConfigured()
-      ? (existing ? 'Event berhasil diperbarui' : 'Event baru dibuat — status Nonaktif, aktifkan saat siap')
-      : 'Event disimpan pada mode preview');
-  }catch(error){
-    events = previousEvents;
-    toast(error.message || 'Event gagal disimpan');
+  if(existing){
+    const index = events.findIndex(event=>event.id===existing.id);
+    events[index] = normalizeEvent(payload, index);
+  } else {
+    events.push(normalizeEvent(payload, events.length));
   }
+  indexParticipants();
+
+  const outcome = await runAction({
+    loadingText: existing ? 'Memperbarui event…' : 'Menyimpan event baru…',
+    successText: existing
+      ? `Event "${name}" berhasil diperbarui.`
+      : `Event "${name}" berhasil dibuat. Statusnya masih Nonaktif — aktifkan saat siap.`,
+    successTitle: existing ? 'Berhasil diperbarui' : 'Event dibuat',
+    button: document.getElementById('btn-save-event'),
+    task: ()=>persistEvent(events.find(event=>event.id===payload.id))
+  });
+
+  if(!outcome.ok){ events = previousEvents; indexParticipants(); renderEventTable(); return; }
+  closeModal('modal-event');
+  renderEventTable();
+  flashRow(`[data-event-row="${payload.id}"]`);
 }
 
-/* ---- Result modal ---- */
+/* =====================================================================
+   PEMENANG (opsional)
+   ===================================================================== */
 function openResultModal(id){
   const e = events.find(x=>x.id===id);
   if(!e) return;
-  const body = document.getElementById('result-body');
   document.getElementById('modal-result').dataset.eventId = id;
-  if(e.mode === 'A'){
-    body.innerHTML = `
-      <div class="field"><label>Juara 1</label><input id="res-1" value="${escapeHtml(e.results?.[0]?.nama||'')}" placeholder="Nama pemenang"></div>
-      <div class="field"><label>Juara 2</label><input id="res-2" value="${escapeHtml(e.results?.[1]?.nama||'')}" placeholder="Nama pemenang"></div>
-      <div class="field"><label>Juara 3</label><input id="res-3" value="${escapeHtml(e.results?.[2]?.nama||'')}" placeholder="Nama pemenang"></div>
-    `;
-  } else {
-    body.innerHTML = e.categories.map((c,ci) => `
-      <div class="section-label" style="border-top:${ci===0?'none':'1px solid var(--border)'};">${escapeHtml(c.name)}</div>
-      <div class="field"><label>Juara 1</label><input id="res-${ci}-1" value="${escapeHtml(c.results?.[0]?.nama||'')}" placeholder="${c.type==='tim'?'Nama tim':'Nama orang'}"></div>
-      <div class="field"><label>Juara 2</label><input id="res-${ci}-2" value="${escapeHtml(c.results?.[1]?.nama||'')}" placeholder="${c.type==='tim'?'Nama tim':'Nama orang'}"></div>
-      <div class="field"><label>Juara 3</label><input id="res-${ci}-3" value="${escapeHtml(c.results?.[2]?.nama||'')}" placeholder="${c.type==='tim'?'Nama tim':'Nama orang'}"></div>
-    `).join('');
-  }
+  document.getElementById('result-event-name').textContent = e.name;
+  document.getElementById('res-1').value = e.results?.[0]?.nama || '';
+  document.getElementById('res-2').value = e.results?.[1]?.nama || '';
+  document.getElementById('res-3').value = e.results?.[2]?.nama || '';
+  document.getElementById('f-show-results').checked = e.showResults;
+  document.getElementById('result-hint').textContent = e.type === 'tim'
+    ? 'Isi dengan nama TIM pemenang. Kosongkan yang tidak dipakai.'
+    : 'Isi dengan nama ORANG pemenang. Kosongkan yang tidak dipakai.';
   openModal('modal-result');
 }
-function collectResults(prefix, prizes){
-  return [1,2,3].map((position,index)=>{
-    const nama = document.getElementById(`${prefix}${position}`)?.value.trim() || '';
-    return nama ? {posisi:`Juara ${position}`,nama,hadiah:prizes?.[index]?.value || ''} : null;
-  }).filter(Boolean);
-}
+
 async function saveResult(){
   const eventId = document.getElementById('modal-result').dataset.eventId;
   const event = events.find(item=>item.id===eventId);
   if(!event) return;
-  if(event.mode === 'A') event.results = collectResults('res-',event.prizes);
-  else event.categories.forEach((category,index)=>{ category.results = collectResults(`res-${index}-`,category.prizes); });
-  try{
-    await persistEvent(event);
-    closeModal('modal-result');
-    toast(apiIsConfigured() ? 'Hasil pemenang tersimpan — otomatis tampil di halaman publik' : 'Hasil tersimpan pada mode preview');
-  }catch(error){
-    toast(error.message || 'Hasil pemenang gagal disimpan');
-  }
+  const previous = { results:event.results, showResults:event.showResults };
+
+  event.results = [1,2,3].map((position,index)=>{
+    const nama = document.getElementById(`res-${position}`).value.trim();
+    return nama ? { posisi:`Juara ${position}`, nama, hadiah:event.prizes?.[index]?.value || '' } : null;
+  }).filter(Boolean);
+  if(!event.results.length) event.results = null;
+  event.showResults = document.getElementById('f-show-results').checked;
+
+  const outcome = await runAction({
+    loadingText:'Menyimpan pemenang…',
+    successText: event.results
+      ? (event.showResults ? 'Pemenang tersimpan dan tampil di halaman publik.' : 'Pemenang tersimpan tetapi disembunyikan dari halaman publik.')
+      : 'Daftar pemenang dikosongkan.',
+    successTitle:'Berhasil disimpan',
+    button: document.getElementById('btn-save-result'),
+    task: async ()=>{
+      if(apiIsConfigured()){
+        await AxgApi.saveResult({ eventId, results:event.results, showResults:event.showResults });
+        await reloadAdminData();
+      } else {
+        indexParticipants();
+      }
+    }
+  });
+  if(!outcome.ok){ event.results = previous.results; event.showResults = previous.showResults; return; }
+  closeModal('modal-result');
+  renderEventTable();
 }
 
-/* ============ KELOLA PESERTA ============ */
+/* =====================================================================
+   KELOLA PESERTA (per event)
+   ===================================================================== */
 function renderParticipants(el, topAction){
-  const opts = events.map(e => `<option value="${e.id}" ${e.id===currentParticipantsEventId?'selected':''}>${escapeHtml(e.name)}</option>`).join('');
-  topAction.innerHTML = `<button class="btn btn-outline btn-sm" onclick="downloadExcel(currentParticipantsEventId)">⬇ Download Excel</button>`;
+  if(!events.length){
+    topAction.innerHTML = '';
+    el.innerHTML = `<div class="panel"><div class="empty-state"><div class="em-mark">👥</div><h4>Belum ada event</h4><p>Buat event terlebih dahulu sebelum mengelola peserta.</p><button class="btn btn-gold btn-sm" onclick="showPage('events')">Buat Event</button></div></div>`;
+    return;
+  }
+  if(!events.some(e=>e.id===currentParticipantsEventId)) currentParticipantsEventId = events[0].id;
+  const opts = sortedEvents(events).map(e=>`<option value="${e.id}" ${e.id===currentParticipantsEventId?'selected':''}>${escapeHtml(e.name)}</option>`).join('');
+  topAction.innerHTML = `<button class="btn btn-gold btn-sm" onclick="downloadExcel(currentParticipantsEventId,this)">⬇ Unduh Excel Event Ini</button>`;
   el.innerHTML = `
     <div class="panel">
       <div class="panel-head">
@@ -1264,12 +1698,11 @@ function renderParticipants(el, topAction){
         <div class="toolbar" style="align-self:flex-end;">
           <input class="search-input" id="pt-search" placeholder="Cari nama..." oninput="renderParticipantTable()">
           <select class="search-input" id="pt-filter-div" onchange="renderParticipantTable()"><option value="">Semua Divisi</option></select>
-          <select class="search-input" id="pt-filter-cat" onchange="renderParticipantTable()"><option value="">Semua Kategori</option></select>
         </div>
       </div>
+      <div id="participant-summary"></div>
       <div id="participant-table-wrap"></div>
-    </div>
-  `;
+    </div>`;
   populateParticipantFilters();
   renderParticipantTable();
 }
@@ -1281,90 +1714,81 @@ function switchParticipantEvent(id){
 }
 
 function populateParticipantFilters(){
-  const list = participants[currentParticipantsEventId] || [];
-  const divs = [...new Set(list.map(p=>p.divisi))];
-  const cats = [...new Set(list.map(p=>p.category).filter(Boolean))];
+  const event = events.find(x=>x.id===currentParticipantsEventId);
+  const list = event ? event.participants : [];
+  const divisions = [...new Set(list.map(p=>p.divisi).filter(Boolean))].sort();
   const divSel = document.getElementById('pt-filter-div');
-  const catSel = document.getElementById('pt-filter-cat');
-  divSel.innerHTML = `<option value="">Semua Divisi</option>` + divs.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-  const e = events.find(x=>x.id===currentParticipantsEventId);
-  if(e?.mode === 'B'){
-    catSel.style.display = '';
-    catSel.innerHTML = `<option value="">Semua Kategori</option>` + cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-  } else {
-    catSel.style.display = 'none';
-  }
+  if(divSel) divSel.innerHTML = `<option value="">Semua Divisi</option>` + divisions.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
 }
 
 function renderParticipantTable(){
   const wrap = document.getElementById('participant-table-wrap');
-  const e = events.find(x=>x.id===currentParticipantsEventId);
-  if(!e){
-    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Belum ada event</h4><p>Buat event terlebih dahulu.</p></div>`;
+  const summary = document.getElementById('participant-summary');
+  if(!wrap) return;
+  const event = events.find(x=>x.id===currentParticipantsEventId);
+  if(!event){
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">🗂️</div><h4>Event tidak ditemukan</h4><p>Pilih event lain pada daftar di atas.</p></div>`;
     return;
   }
-  const q = (document.getElementById('pt-search')?.value||'').toLowerCase();
-  const fd = document.getElementById('pt-filter-div')?.value||'';
-  const fc = document.getElementById('pt-filter-cat')?.value||'';
-  let list = (participants[currentParticipantsEventId]||[]).filter(p =>
-    normalizeText(p.name).includes(normalizeText(q)) && (!fd || p.divisi===fd) && (!fc || p.category===fc)
+  const counts = getEventCounts(event);
+  if(summary){
+    summary.innerHTML = `<div class="sub-bar">
+      <span><b>${typeLabel(event)}</b></span>
+      <span>Terisi <b>${counts.registered} / ${counts.capacity} ${counts.unit}</b></span>
+      ${event.type==='tim'?`<span>Total <b>${counts.people} orang</b></span>`:''}
+      <span>Prefix <b class="mono">${escapeHtml(event.prefix)}</b></span>
+    </div>`;
+  }
+
+  const q = normalizeText(document.getElementById('pt-search')?.value || '');
+  const division = document.getElementById('pt-filter-div')?.value || '';
+  const list = event.participants.filter(p =>
+    (!q || normalizeText(p.name).includes(q) || normalizeText(p.registrationNumber).includes(q)) &&
+    (!division || p.divisi === division)
   );
 
-  if(list.length===0){
-    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">👥</div><h4>Belum ada peserta</h4><p>Belum ada peserta yang cocok / mendaftar untuk event ini.</p></div>`;
+  if(list.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">👥</div><h4>Belum ada peserta</h4><p>${event.participants.length ? 'Tidak ada peserta yang cocok dengan pencarian.' : 'Belum ada yang mendaftar pada event ini.'}</p></div>`;
     return;
   }
 
-  if(e.mode === 'A'){
-    wrap.innerHTML = participantTable(list);
+  if(event.type === 'tim'){
+    const teams = groupByTeam(list);
+    const noTeam = list.filter(p=>!p.team);
+    wrap.innerHTML = teams.map(team=>`
+      <div class="group-title">Tim "${escapeHtml(team.name)}" · ${team.members.length}${event.teamSize!=='bebas'?`/${event.teamSize}`:''} orang</div>
+      ${participantTable(team.members)}`).join('') +
+      (noTeam.length ? `<div class="group-title">Tanpa Tim</div>${participantTable(noTeam)}` : '');
     return;
   }
-
-  // Mode B: group by category, then by team
-  let html = '';
-  const byCat = {};
-  list.forEach(p => { (byCat[p.category] = byCat[p.category]||[]).push(p); });
-  Object.keys(byCat).forEach(cat => {
-    html += `<div class="group-title">${escapeHtml(cat)}</div>`;
-    const catItems = byCat[cat];
-    const hasTeam = catItems.some(p=>p.team);
-    if(hasTeam){
-      const byTeam = {};
-      catItems.forEach(p => { (byTeam[p.team]=byTeam[p.team]||[]).push(p); });
-      Object.keys(byTeam).forEach(team => {
-        html += `<div class="team-title">Tim "${escapeHtml(team)}"</div>`;
-        html += participantTable(byTeam[team], true);
-      });
-    } else {
-      html += participantTable(catItems);
-    }
-  });
-  wrap.innerHTML = html;
+  wrap.innerHTML = participantTable(list);
 }
 
-function participantTable(list, compact){
+function participantTable(list){
   return `
-    <table>
-      ${compact ? '' : `<thead><tr><th>No.</th><th>Nama</th><th>Divisi</th><th>Telegram</th><th>Data Tambahan</th><th>Aksi</th></tr></thead>`}
-      <tbody>
-        ${list.map(p => `
-          <tr class="row-hover">
-            <td class="mono">${escapeHtml(p.registrationNumber || p.id)}</td>
-            <td class="name-cell">${escapeHtml(p.name)}</td>
-            <td>${escapeHtml(p.divisi)}</td>
-            <td class="mono">@${escapeHtml(p.telegram)}</td>
-            <td>${participantExtraHtml(p)}</td>
-            <td>
-              <div class="row-actions">
-                <button class="icon-btn" title="Hubungi Telegram" onclick="window.open('https://t.me/${encodeURIComponent(p.telegram)}','_blank','noopener')">✈</button>
-                <button class="icon-btn" title="Edit" onclick="openEditParticipant('${p.id}')">✎</button>
-                <button class="icon-btn" title="Hapus" style="color:var(--red);border-color:var(--red-soft);" onclick="confirmDeleteParticipant('${p.id}')">🗑</button>
-              </div>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>
-  `;
+    <div class="table-scroll">
+      <table class="responsive-table">
+        <thead><tr><th>No. Registrasi</th><th>Nama</th><th>Divisi</th><th>Telegram</th><th>Data Tambahan</th><th>Waktu Daftar</th><th>Aksi</th></tr></thead>
+        <tbody>
+          ${list.map(p => `
+            <tr class="row-hover" data-participant-row="${p.id}">
+              <td class="mono" data-label="No. Registrasi">${escapeHtml(p.registrationNumber || p.id)}</td>
+              <td class="name-cell" data-label="Nama">${escapeHtml(p.name)}</td>
+              <td data-label="Divisi">${escapeHtml(p.divisi)}</td>
+              <td class="mono" data-label="Telegram">${p.telegram?'@'+escapeHtml(p.telegram):'—'}</td>
+              <td data-label="Data Tambahan">${participantExtraHtml(p)}</td>
+              <td class="sub-cell" data-label="Waktu Daftar">${escapeHtml(formatStamp(p.createdAt)) || '—'}</td>
+              <td class="cell-actions" data-label="Aksi">
+                <div class="row-actions">
+                  <button class="icon-btn" title="Hubungi via Telegram" onclick="window.open('https://t.me/${encodeURIComponent(p.telegram)}','_blank','noopener')">✈</button>
+                  <button class="icon-btn" title="Edit peserta" onclick="openEditParticipant('${p.id}')">✎</button>
+                  <button class="icon-btn" title="Hapus peserta" style="color:var(--red);border-color:var(--red-soft);" onclick="confirmDeleteParticipant('${p.id}')">🗑</button>
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 function participantExtraHtml(participant){
@@ -1374,37 +1798,30 @@ function participantExtraHtml(participant){
     : '<span class="sub-cell">—</span>';
 }
 
+function findParticipant(id){
+  const event = events.find(x=>x.id===currentParticipantsEventId);
+  return event ? event.participants.find(p=>p.id===id) : null;
+}
+
 function openEditParticipant(id){
   editingParticipantId = id;
-  const p = participants[currentParticipantsEventId].find(x=>x.id===id);
+  const p = findParticipant(id);
+  const event = events.find(x=>x.id===currentParticipantsEventId);
+  if(!p || !event) return;
   document.getElementById('ep-name').value = p.name;
   document.getElementById('ep-divisi').value = p.divisi;
   document.getElementById('ep-telegram').value = p.telegram;
-
-  const event = events.find(x=>x.id===currentParticipantsEventId);
-  const catWrap = document.getElementById('ep-category-wrap');
   const teamWrap = document.getElementById('ep-team-wrap');
-  if(event && event.mode === 'B'){
-    catWrap.classList.remove('hidden');
-    const catSelect = document.getElementById('ep-category');
-    catSelect.innerHTML = event.categories.map(c=>`<option value="${c.id}" ${c.id===p.categoryId?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
-    document.getElementById('ep-team').value = p.team || '';
-    onEditCategoryChange();
-  } else {
-    catWrap.classList.add('hidden');
-    teamWrap.classList.add('hidden');
-  }
+  teamWrap.classList.toggle('hidden', event.type !== 'tim');
+  document.getElementById('ep-team').value = p.team || '';
+  document.getElementById('ep-event-name').textContent = event.name;
   openModal('modal-edit-participant');
 }
-function onEditCategoryChange(){
-  const event = events.find(x=>x.id===currentParticipantsEventId);
-  const catId = document.getElementById('ep-category').value;
-  const category = event?.categories.find(c=>c.id===catId);
-  document.getElementById('ep-team-wrap').classList.toggle('hidden', !category || category.type !== 'tim');
-}
+
 async function savePartticipantEdit(){
-  const p = participants[currentParticipantsEventId].find(x=>x.id===editingParticipantId);
+  const p = findParticipant(editingParticipantId);
   const event = events.find(x=>x.id===currentParticipantsEventId);
+  if(!p || !event) return;
   const update = {
     ...p,
     name:document.getElementById('ep-name').value.trim(),
@@ -1412,72 +1829,505 @@ async function savePartticipantEdit(){
     telegram:document.getElementById('ep-telegram').value.trim().replace(/^@+/, '')
   };
   if(!update.name || !update.divisi || !update.telegram){
-    toast('Nama, divisi, dan Telegram wajib diisi');
+    toastError('Nama, divisi, dan Telegram wajib diisi.');
     return;
   }
-  if(event && event.mode === 'B'){
-    const catId = document.getElementById('ep-category').value;
-    const category = event.categories.find(c=>c.id===catId);
-    if(!category){ toast('Kategori wajib dipilih'); return; }
-    update.categoryId = catId;
-    update.category = category.name;
-    if(category.type === 'tim'){
-      const team = document.getElementById('ep-team').value.trim();
-      if(!team){ toast('Nama team wajib diisi'); return; }
-      update.team = team;
-    } else {
-      update.team = null;
-    }
+  if(event.type === 'tim'){
+    const team = document.getElementById('ep-team').value.trim();
+    if(!team){ toastError('Nama tim wajib diisi.'); return; }
+    update.team = team;
+  } else {
+    update.team = '';
   }
-  try{
-    if(apiIsConfigured()){
-      await AxgApi.updateParticipant(update);
-      await reloadAdminData();
-    } else {
-      Object.assign(p,update);
-      syncNestedParticipants(currentParticipantsEventId);
+
+  const outcome = await runAction({
+    loadingText:'Memperbarui data peserta…',
+    successText:`Data peserta "${update.name}" berhasil diperbarui.`,
+    successTitle:'Berhasil diperbarui',
+    button: document.getElementById('btn-save-participant'),
+    task: async ()=>{
+      if(apiIsConfigured()){
+        await AxgApi.updateParticipant(update);
+        await reloadAdminData();
+      } else {
+        Object.assign(p, update);
+        indexParticipants();
+      }
     }
-    closeModal('modal-edit-participant');
-    populateParticipantFilters();
-    renderParticipantTable();
-    toast(apiIsConfigured() ? 'Data peserta diperbarui' : 'Data peserta diperbarui pada mode preview');
-  }catch(error){
-    toast(error.message || 'Data peserta gagal diperbarui');
-  }
+  });
+  if(!outcome.ok) return;
+  closeModal('modal-edit-participant');
+  populateParticipantFilters();
+  renderParticipantTable();
+  flashRow(`[data-participant-row="${editingParticipantId}"]`);
 }
 
 function confirmDeleteParticipant(id){
-  const p = participants[currentParticipantsEventId].find(x=>x.id===id);
+  const p = findParticipant(id);
+  if(!p) return;
   document.getElementById('confirm-title').textContent = 'Hapus Peserta Ini?';
-  document.getElementById('confirm-text').innerHTML = `Peserta <strong>${escapeHtml(p.name)}</strong> (${escapeHtml(p.divisi)}) akan dihapus dari event ini. Aksi ini tidak bisa dibatalkan.`;
+  document.getElementById('confirm-text').innerHTML = `Peserta <strong>${escapeHtml(p.name)}</strong> (${escapeHtml(p.divisi)}) akan dihapus dari event ini. Pendaftarannya di event lain tidak terpengaruh.`;
   const btn = document.getElementById('confirm-btn');
   btn.textContent = 'Ya, Hapus';
+  btn.className = 'btn btn-danger';
   btn.onclick = async () => {
-    try{
-      if(apiIsConfigured()){
-        await AxgApi.deleteParticipant(id);
-        await reloadAdminData();
-      } else {
-        participants[currentParticipantsEventId] = participants[currentParticipantsEventId].filter(x=>x.id!==id);
-        syncNestedParticipants(currentParticipantsEventId);
+    const row = document.querySelector(`[data-participant-row="${id}"]`);
+    if(row) row.classList.add('row-removing');
+    const outcome = await runAction({
+      loadingText:'Menghapus peserta…',
+      successText:`Peserta "${p.name}" berhasil dihapus dari event ini.`,
+      successTitle:'Berhasil dihapus',
+      button: btn,
+      task: async ()=>{
+        if(apiIsConfigured()){
+          await AxgApi.deleteParticipant(id);
+          await reloadAdminData();
+        } else {
+          const event = events.find(x=>x.id===currentParticipantsEventId);
+          event.participants = event.participants.filter(x=>x.id!==id);
+          indexParticipants();
+        }
       }
-      closeModal('modal-confirm');
-      populateParticipantFilters();
-      renderParticipantTable();
-      toast(apiIsConfigured() ? 'Peserta berhasil dihapus' : 'Peserta dihapus pada mode preview');
-    }catch(error){
-      toast(error.message || 'Peserta gagal dihapus');
-    }
+    });
+    if(!outcome.ok){ if(row) row.classList.remove('row-removing'); return; }
+    closeModal('modal-confirm');
+    populateParticipantFilters();
+    renderParticipantTable();
   };
   openModal('modal-confirm');
 }
 
-/* ============ MODAL HELPERS ============ */
-function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+/* =====================================================================
+   HALAMAN "SIAPA IKUT APA" (lintas event)
+   ===================================================================== */
+function renderDirectory(el, topAction){
+  const eventOptions = sortedEvents(events.filter(e=>e.participants.length))
+    .map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+  const divisions = [...new Set(buildDirectory().map(p=>p.divisi).filter(Boolean))].sort();
+  topAction.innerHTML = `<button class="btn btn-outline btn-sm" onclick="downloadAllExcel(this)">⬇ Rekap Semua</button>`;
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Siapa Ikut Apa</h3>
+          <div class="sub-cell" style="margin-top:3px">Satu baris per orang, lengkap dengan semua lomba yang diikutinya.</div>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" id="dir-search" placeholder="Cari nama..." oninput="renderDirectoryTable()">
+          <select class="search-input" id="dir-filter-div" onchange="renderDirectoryTable()"><option value="">Semua Divisi</option>${divisions.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
+          <select class="search-input" id="dir-filter-event" onchange="renderDirectoryTable()"><option value="">Semua Event</option>${eventOptions}</select>
+        </div>
+      </div>
+      <div id="directory-table-wrap"></div>
+    </div>`;
+  renderDirectoryTable();
+}
+
+function renderDirectoryTable(){
+  const wrap = document.getElementById('directory-table-wrap');
+  if(!wrap) return;
+  const directory = buildDirectory();
+  const q = normalizeText(document.getElementById('dir-search')?.value || '');
+  const division = document.getElementById('dir-filter-div')?.value || '';
+  const eventId = document.getElementById('dir-filter-event')?.value || '';
+  const list = directory.filter(person=>
+    (!q || normalizeText(person.name).includes(q)) &&
+    (!division || person.divisi === division) &&
+    (!eventId || person.entries.some(entry=>entry.eventId === eventId))
+  );
+
+  if(!list.length){
+    wrap.innerHTML = `<div class="empty-state"><div class="em-mark">👥</div><h4>Belum ada pendaftar</h4><p>${directory.length ? 'Tidak ada orang yang cocok dengan pencarian.' : 'Belum ada peserta yang mendaftar di event mana pun.'}</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="table-scroll">
+      <table class="responsive-table">
+        <thead><tr><th>Nama</th><th>Divisi</th><th>Telegram</th><th>Jumlah</th><th>Lomba Yang Diikuti</th></tr></thead>
+        <tbody>
+          ${list.map(person=>`
+            <tr class="row-hover">
+              <td class="name-cell" data-label="Nama">${escapeHtml(person.name)}</td>
+              <td data-label="Divisi">${escapeHtml(person.divisi)}</td>
+              <td class="mono" data-label="Telegram">${person.telegram?'@'+escapeHtml(person.telegram):'—'}</td>
+              <td class="mono" data-label="Jumlah">${person.entries.length}</td>
+              <td data-label="Lomba Yang Diikuti">
+                <div class="chip-list">
+                  ${person.entries.map(entry=>`<span class="chip ${entry.active?'':'chip-muted'}">${escapeHtml(entry.eventName)}${entry.team?` <i>· ${escapeHtml(entry.team)}</i>`:''}</span>`).join('')}
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/* =====================================================================
+   EKSPOR EXCEL
+   Satu file per event: sheet Ringkasan + Peserta (+ Pemenang bila ada).
+   Rekap semua event: Rekap + Siapa Ikut Apa + satu sheet per event.
+   ===================================================================== */
+const XLS = Object.freeze({
+  gold:'FFAD8425', goldSoft:'FFF6EDD7', ink:'FF221F1A', inkSoft:'FF726C62',
+  zebra:'FFFAF9F5', border:'FFE8E2D4', green:'FF3E7A52', red:'FFB03A2C', white:'FFFFFFFF'
+});
+
+function excelIsReady(){ return typeof window.ExcelJS !== 'undefined'; }
+
+function safeSheetName(name, used){
+  // Excel: maksimal 31 karakter, tidak boleh mengandung : \ / ? * [ ]
+  let base = String(name || 'Sheet').replace(/[\\/?*[\]:]/g,' ').replace(/\s+/g,' ').trim().slice(0,31) || 'Sheet';
+  let candidate = base, n = 2;
+  while(used.has(candidate.toLowerCase())){
+    const suffix = ` (${n++})`;
+    candidate = base.slice(0, 31 - suffix.length) + suffix;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
+function styleTitleRow(sheet, row, span){
+  sheet.mergeCells(row.number, 1, row.number, span);
+  const cell = row.getCell(1);
+  cell.font = { name:'Calibri', size:14, bold:true, color:{argb:XLS.white} };
+  cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XLS.gold} };
+  cell.alignment = { vertical:'middle', horizontal:'left', indent:1 };
+  row.height = 28;
+}
+function styleHeaderRow(row){
+  row.eachCell(cell=>{
+    cell.font = { bold:true, size:10.5, color:{argb:XLS.white} };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XLS.gold} };
+    cell.alignment = { vertical:'middle', horizontal:'center', wrapText:true };
+    cell.border = {
+      top:{style:'thin',color:{argb:XLS.gold}}, bottom:{style:'thin',color:{argb:XLS.gold}},
+      left:{style:'thin',color:{argb:XLS.gold}}, right:{style:'thin',color:{argb:XLS.gold}}
+    };
+  });
+  row.height = 22;
+}
+function styleBodyRow(row, index){
+  row.eachCell(cell=>{
+    cell.font = { size:10.5, color:{argb:XLS.ink} };
+    cell.alignment = { vertical:'middle', wrapText:true };
+    cell.border = {
+      top:{style:'hair',color:{argb:XLS.border}}, bottom:{style:'hair',color:{argb:XLS.border}},
+      left:{style:'hair',color:{argb:XLS.border}}, right:{style:'hair',color:{argb:XLS.border}}
+    };
+    if(index % 2 === 1) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XLS.zebra} };
+  });
+  row.height = 19;
+}
+function autoFitColumns(sheet, minWidth = 10, maxWidth = 46){
+  sheet.columns.forEach(column=>{
+    let widest = minWidth;
+    column.eachCell({ includeEmpty:false }, cell=>{
+      // Lewati sel gabungan (baris judul) supaya lebar kolom tidak melar.
+      if(cell.isMerged) return;
+      const text = cell.value == null ? '' : (typeof cell.value === 'object' ? (cell.value.richText?.map(t=>t.text).join('') || cell.value.text || '') : String(cell.value));
+      text.split('\n').forEach(line=>{ widest = Math.max(widest, line.length + 3); });
+    });
+    column.width = Math.min(maxWidth, widest);
+  });
+}
+function extraToText(extra){
+  return Object.entries(extra || {})
+    .filter(([,value])=>value !== '' && value != null)
+    .map(([key,value])=>`${key}: ${value}`).join('\n');
+}
+function sortParticipants(items){
+  return items.slice().sort((a,b)=>
+    String(a.team||'').localeCompare(String(b.team||''),'id') ||
+    String(a.registrationNumber||a.id||'').localeCompare(String(b.registrationNumber||b.id||''),'id')
+  );
+}
+
+function buildEventSummarySheet(workbook, event, used){
+  const sheet = workbook.addWorksheet(safeSheetName('Ringkasan', used), {
+    views:[{ showGridLines:false }],
+    pageSetup:{ paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0 }
+  });
+  const counts = getEventCounts(event);
+  styleTitleRow(sheet, sheet.addRow([`RINGKASAN — ${event.name}`]), 4);
+  sheet.addRow([]);
+  const info = [
+    ['Acara', event.eventGroup || '-'],
+    ['Tanggal', formatDate(event.date)],
+    ['Lokasi', event.location || '-'],
+    ['Tipe Peserta', typeLabel(event)],
+    ['Prefix Pendaftaran', normalizePrefix(event.prefix)],
+    ['Status', event.active ? 'Pendaftaran Dibuka' : 'Nonaktif / Selesai'],
+    [`Terisi (${counts.unit})`, `${counts.registered} dari ${counts.capacity}`],
+    ['Total Orang', counts.people],
+    ['Keterisian', counts.capacity ? Math.round(counts.registered/counts.capacity*100) + '%' : '-'],
+    ['Aturan Main', event.rules || '-'],
+    ['Diekspor pada', formatStamp(new Date().toISOString())]
+  ];
+  info.forEach(([label,value])=>{
+    const row = sheet.addRow([label, value]);
+    row.getCell(1).font = { bold:true, size:10.5, color:{argb:XLS.inkSoft} };
+    row.getCell(2).font = { size:10.5, color:{argb:XLS.ink} };
+    row.getCell(2).alignment = { vertical:'middle', wrapText:true };
+  });
+
+  if(event.prizes.length){
+    sheet.addRow([]);
+    const headerRow = sheet.addRow(['Hadiah','Nilai']);
+    styleHeaderRow(headerRow);
+    event.prizes.forEach((prize,index)=>{
+      styleBodyRow(sheet.addRow([prize.label, prize.value]), index);
+    });
+  }
+  autoFitColumns(sheet, 14, 60);
+  return sheet;
+}
+
+function buildParticipantSheet(workbook, event, used, sheetLabel){
+  const sheet = workbook.addWorksheet(safeSheetName(sheetLabel || event.name, used), {
+    views:[{ showGridLines:false }],
+    pageSetup:{ paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0 }
+  });
+  const isTeam = event.type === 'tim';
+  const hasExtra = event.participants.some(p=>Object.keys(p.extra || {}).length);
+  const counts = getEventCounts(event);
+
+  const columns = ['No','Nomor Pendaftaran','Nama Lengkap','Divisi','Telegram'];
+  if(isTeam) columns.push('Tim');
+  if(hasExtra) columns.push('Data Tambahan');
+  columns.push('Waktu Daftar');
+
+  styleTitleRow(sheet, sheet.addRow([`${event.name}${event.eventGroup?` — ${event.eventGroup}`:''}`]), columns.length);
+  const subRow = sheet.addRow([
+    `${typeLabel(event)} · terisi ${counts.registered}/${counts.capacity} ${counts.unit} · ${counts.people} orang · ${formatDate(event.date)} · diekspor ${formatStamp(new Date().toISOString())}`
+  ]);
+  sheet.mergeCells(subRow.number, 1, subRow.number, columns.length);
+  subRow.getCell(1).font = { size:9.5, italic:true, color:{argb:XLS.inkSoft} };
+  subRow.getCell(1).alignment = { vertical:'middle', indent:1 };
+  sheet.addRow([]);
+
+  const headerRow = sheet.addRow(columns);
+  styleHeaderRow(headerRow);
+
+  const ordered = sortParticipants(event.participants);
+  if(!ordered.length){
+    const emptyRow = sheet.addRow(['—','Belum ada peserta yang mendaftar.']);
+    sheet.mergeCells(emptyRow.number, 2, emptyRow.number, columns.length);
+    emptyRow.getCell(2).font = { size:10.5, italic:true, color:{argb:XLS.inkSoft} };
+    styleBodyRow(emptyRow, 0);
+  }
+  ordered.forEach((participant,index)=>{
+    const values = [
+      index + 1,
+      participant.registrationNumber || participant.id,
+      participant.name,
+      participant.divisi,
+      participant.telegram ? '@'+participant.telegram : ''
+    ];
+    if(isTeam) values.push(participant.team || '-');
+    if(hasExtra) values.push(extraToText(participant.extra));
+    values.push(formatStamp(participant.createdAt));
+    const row = sheet.addRow(values);
+    styleBodyRow(row, index);
+    row.getCell(1).alignment = { vertical:'middle', horizontal:'center' };
+    row.getCell(2).font = { size:10.5, bold:true, color:{argb:XLS.gold} };
+    row.getCell(3).font = { size:10.5, bold:true, color:{argb:XLS.ink} };
+  });
+
+  sheet.autoFilter = { from:{row:headerRow.number,column:1}, to:{row:headerRow.number,column:columns.length} };
+  sheet.views = [{ showGridLines:false, state:'frozen', ySplit:headerRow.number }];
+  autoFitColumns(sheet);
+  sheet.getColumn(1).width = 6;
+  return sheet;
+}
+
+function buildWinnerSheet(workbook, event, used){
+  if(!event.results || !event.results.length) return null;
+  const sheet = workbook.addWorksheet(safeSheetName('Pemenang', used), { views:[{ showGridLines:false }] });
+  styleTitleRow(sheet, sheet.addRow([`PEMENANG — ${event.name}`]), 3);
+  sheet.addRow([]);
+  const headerRow = sheet.addRow(['Posisi','Nama Pemenang','Hadiah']);
+  styleHeaderRow(headerRow);
+  event.results.forEach((result,index)=>{
+    styleBodyRow(sheet.addRow([result.posisi || '', result.nama || '', result.hadiah || '']), index);
+  });
+  autoFitColumns(sheet, 16);
+  return sheet;
+}
+
+function buildDirectorySheet(workbook, used){
+  const directory = buildDirectory();
+  const sheet = workbook.addWorksheet(safeSheetName('Siapa Ikut Apa', used), { views:[{ showGridLines:false }] });
+  styleTitleRow(sheet, sheet.addRow([`SIAPA IKUT APA — ${directory.length} orang · ${directory.reduce((s,p)=>s+p.entries.length,0)} pendaftaran`]), 5);
+  sheet.addRow([]);
+  const headerRow = sheet.addRow(['Nama','Divisi','Telegram','Jumlah Lomba','Lomba Yang Diikuti']);
+  styleHeaderRow(headerRow);
+  directory.forEach((person,index)=>{
+    const row = sheet.addRow([
+      person.name, person.divisi, person.telegram ? '@'+person.telegram : '',
+      person.entries.length,
+      person.entries.map(entry=>`• ${entry.eventName}${entry.team?` (Tim ${entry.team})`:''}`).join('\n')
+    ]);
+    styleBodyRow(row, index);
+    row.getCell(4).alignment = { vertical:'middle', horizontal:'center' };
+    row.height = Math.max(19, person.entries.length * 14);
+  });
+  sheet.autoFilter = { from:{row:headerRow.number,column:1}, to:{row:headerRow.number,column:5} };
+  sheet.views = [{ showGridLines:false, state:'frozen', ySplit:headerRow.number }];
+  autoFitColumns(sheet, 12, 52);
+  return sheet;
+}
+
+async function saveWorkbook(workbook, fileName){
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+function todayStamp(){
+  const now = new Date();
+  return `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+}
+
+async function downloadExcel(id, button){
+  const event = events.find(x=>x.id===id);
+  if(!event){ toastError('Event tidak ditemukan.'); return; }
+  if(!excelIsReady()) return downloadExcelFallback(event, button);
+  await runAction({
+    loadingText:'Menyusun file Excel…',
+    loadingSub:'Merapikan data peserta',
+    successText:`File Excel "${event.name}" berhasil diunduh.`,
+    successTitle:'Ekspor selesai',
+    button,
+    task: async ()=>{
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'AXG EVENT Admin';
+      workbook.created = new Date();
+      const used = new Set();
+      buildEventSummarySheet(workbook, event, used);
+      buildParticipantSheet(workbook, event, used, 'Peserta');
+      buildWinnerSheet(workbook, event, used);
+      await saveWorkbook(workbook, `AXG-${slugify(event.name)||'event'}-${todayStamp()}.xlsx`);
+    }
+  });
+}
+
+async function downloadAllExcel(button){
+  if(!events.length){ toastError('Belum ada event untuk diekspor.'); return; }
+  if(!excelIsReady()){ toastError('Modul Excel belum termuat. Periksa koneksi internet lalu coba lagi.'); return; }
+  await runAction({
+    loadingText:'Menyusun rekap semua event…',
+    loadingSub:`${events.length} event sedang diproses`,
+    successText:'Rekap seluruh event berhasil diunduh.',
+    successTitle:'Ekspor selesai',
+    button,
+    task: async ()=>{
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'AXG EVENT Admin';
+      workbook.created = new Date();
+      const used = new Set();
+
+      const sheet = workbook.addWorksheet(safeSheetName('Rekap Semua Event', used), { views:[{ showGridLines:false }] });
+      styleTitleRow(sheet, sheet.addRow([`REKAP SELURUH EVENT AXG — ${formatStamp(new Date().toISOString())}`]), 8);
+      sheet.addRow([]);
+      const headerRow = sheet.addRow(['Acara','Nama Event','Tipe','Tanggal','Lokasi','Status','Terisi','Kapasitas']);
+      styleHeaderRow(headerRow);
+      sortedEvents(events).forEach((event,index)=>{
+        const counts = getEventCounts(event);
+        const row = sheet.addRow([
+          event.eventGroup || '-', event.name, typeLabel(event), formatDate(event.date),
+          event.location || '-', event.active ? 'Aktif' : 'Nonaktif',
+          counts.registered, counts.capacity
+        ]);
+        styleBodyRow(row, index);
+        row.getCell(6).font = { bold:true, size:10.5, color:{argb: event.active ? XLS.green : XLS.inkSoft} };
+        [7,8].forEach(i=>{ row.getCell(i).alignment = { vertical:'middle', horizontal:'center' }; });
+      });
+      sheet.autoFilter = { from:{row:headerRow.number,column:1}, to:{row:headerRow.number,column:8} };
+      sheet.views = [{ showGridLines:false, state:'frozen', ySplit:headerRow.number }];
+      autoFitColumns(sheet, 12);
+
+      buildDirectorySheet(workbook, used);
+
+      // Nama tab dibatasi 31 karakter oleh Excel, jadi dipakai kode "E1", "E2"...
+      sortedEvents(events).forEach((event,index)=>{
+        buildParticipantSheet(workbook, event, used, `E${index+1} ${event.name}`);
+      });
+      await saveWorkbook(workbook, `AXG-rekap-semua-event-${todayStamp()}.xlsx`);
+    }
+  });
+}
+
+/* Cadangan bila ExcelJS gagal dimuat (tanpa pewarnaan). */
+function downloadExcelFallback(event, button){
+  if(!window.XLSX){
+    toastError('Modul Excel belum termuat. Periksa koneksi internet lalu coba lagi.');
+    return;
+  }
+  setBusy(button, true);
+  try{
+    const counts = getEventCounts(event);
+    const workbook = XLSX.utils.book_new();
+    const summaryRows = [
+      ['RINGKASAN EVENT', event.name],
+      ['Acara', event.eventGroup || '-'],
+      ['Tanggal', formatDate(event.date)],
+      ['Lokasi', event.location || '-'],
+      ['Tipe Peserta', typeLabel(event)],
+      ['Terisi', `${counts.registered} / ${counts.capacity} ${counts.unit}`],
+      ['Total Orang', counts.people]
+    ];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+    summarySheet['!cols'] = [{wch:30},{wch:34}];
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Ringkasan');
+
+    const rows = [['No','Nomor Pendaftaran','Nama','Divisi','Telegram','Tim','Waktu Daftar']];
+    sortParticipants(event.participants).forEach((p,index)=>rows.push([
+      index+1, p.registrationNumber || p.id, p.name, p.divisi,
+      p.telegram ? '@'+p.telegram : '', p.team || '-', formatStamp(p.createdAt)
+    ]));
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    sheet['!cols'] = [{wch:6},{wch:22},{wch:28},{wch:18},{wch:20},{wch:22},{wch:22}];
+    sheet['!freeze'] = { xSplit:0, ySplit:1 };
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Peserta');
+    XLSX.writeFile(workbook, `AXG-${slugify(event.name)||'event'}-${todayStamp()}.xlsx`);
+    toastSuccess(`File Excel "${event.name}" berhasil diunduh.`,'Ekspor selesai');
+  }catch(error){
+    toastError(error.message || 'Ekspor Excel gagal.');
+  }finally{
+    setBusy(button, false);
+  }
+}
+
+/* =====================================================================
+   MODAL HELPERS
+   ===================================================================== */
+function openModal(id){
+  document.getElementById(id).classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id){
+  document.getElementById(id).classList.add('hidden');
+  if(!document.querySelector('.modal-overlay:not(.hidden)')) document.body.style.overflow = '';
+}
+document.addEventListener('keydown', event=>{
+  if(event.key !== 'Escape') return;
+  const open = document.querySelector('.modal-overlay:not(.hidden)');
+  if(open) closeModal(open.id);
+});
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+  overlay.addEventListener('mousedown', event=>{ if(event.target === overlay) closeModal(overlay.id); });
+});
 
 /* Pulihkan sesi yang sama setelah halaman di-refresh. */
 restoreAdminSession();
+
 </script>
 </body>
 </html>
